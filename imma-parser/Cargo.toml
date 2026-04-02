@@ -1,0 +1,17 @@
+[package]
+name = "imma-parser"
+version = "0.1.0"
+edition.workspace = true
+
+[dependencies]
+nom = { workspace = true }
+strum_macros = { workspace = true }
+thiserror = { workspace = true }
+bytes = { workspace = true }
+chrono = { workspace = true }
+tinystr = { workspace = true }
+arrow = { workspace = true }
+arrow_convert = { workspace = true }
+geo = { workspace = true }
+geohash = { workspace = true }
+itertools = { workspace = true }

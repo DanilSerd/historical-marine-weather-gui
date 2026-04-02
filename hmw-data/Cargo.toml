@@ -1,0 +1,21 @@
+[package]
+name = "hmw-data"
+version = "0.1.0"
+edition.workspace = true
+
+[dependencies]
+hmw-geo = { path = "../hmw-geo" }
+imma-files = { path = "../imma-files" }
+hmw-parquet = { path = "../hmw-parquet" }
+imma-parser = { path = "../imma-parser" }
+tokio = { workspace = true }
+chrono = { workspace = true }
+serde = { workspace = true }
+futures = { workspace = true }
+thiserror = { workspace = true }
+ndhistogram = { workspace = true }
+strum = { workspace = true }
+
+[dev-dependencies]
+async-stream = { workspace = true }
+tempfile = { workspace = true }

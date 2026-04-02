@@ -1,0 +1,26 @@
+# TODO
+
+- [ ] Build binaries and packages installers. Setup up a release procedure.
+- [ ] Add HELP.md and show it in the GUI as a pane grid component. Cover what ICOADS is. Importing data. Creating summary collection. Any warnings.
+- [ ] Open help on first open.
+- [ ] Fix summary collection save file. Make sure it has a .json appended if not added by the user. (This seem to only effect linux build)
+- [ ] When closing the window confirm unsaved changes with a dialogue.
+- [ ] When all files failed make sure nothing is written or committed.
+- [ ] Add Themes.
+- [ ] rfd windows parent should be set to the appropriate windows.
+- [ ] Add a confirmation for cancel. And for when closing the data manager.
+- [ ] Add dataset statistics to pick directory view. Maybe also add the number of duplicates based on uid.
+- [ ] Add total file sizes for all the sources in import view.
+- [ ] Add a reset to 0/0 button to globe.
+- [ ] Add overall geo area of the selection to the stats.
+- [ ] Fix the year display in new summary and collection stats to show only one year if only 1 year is selected.
+- [ ] Tooltip on wind rose should use the crates tooltip.
+- [ ] Fix key and controls pane appearance.
+- [ ] Add speed to the key. In knots.
+- [ ] Add version to GUI
+- [ ] Publish updates on progress of how many records passed on a timed schedule not based on static number of records.
+- [ ] The speed of records processed should be a moving average.
+- [ ] Fix the names of the summaries text wrap.
+- [ ] Solve the memory issues on import. Need some way to control how many records to keep in memory before writing out (the current static setting is not enough it should dynamically fluctuate based on available memory)
+- [ ] Fix the wind rose card separation.
+- [ ] Remove geohash list from new summary form. Count of geohashes would be enough.

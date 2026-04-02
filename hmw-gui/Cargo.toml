@@ -1,0 +1,39 @@
+[package]
+name = "hmw-gui"
+description = "Historical marine weather GUI"
+version = "0.1.0"
+edition.workspace = true
+
+[package.metadata.bundle]
+name = "Historical Marine Weather"
+# TODO: Fix itdentifier to github
+identifier = "dev.historical-marine-weather.hmw-gui"
+icon = ["assets/logo.png"]
+category = "public.app-category.utilities"
+
+[dependencies]
+iced = { workspace = true }
+glam = { workspace = true}
+bytemuck = { workspace = true }
+hmw-data = { path = "../hmw-data" }
+hmw-geo = { path = "../hmw-geo" }
+imma-files = { path = "../imma-files" }
+chrono = { workspace = true }
+plotters = { workspace = true }
+plotters-iced2 = { workspace = true }
+uuid = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+rfd = { workspace = true }
+hexasphere = { workspace = true }
+ktx2 = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+rust-embed = { workspace = true }
+tokio-stream = { workspace = true }
+directories = { workspace = true }
+
+[build-dependencies]
+winres = { workspace = true }
+
+[dev-dependencies]

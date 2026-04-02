@@ -1,0 +1,181 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+  RELEASE_BINARY: hmw-gui
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Install Linux dependencies
+        uses: ./.github/actions/install-linux-dependencies
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Check workspace
+        env:
+          RUSTFLAGS: -D warnings
+        run: cargo check --workspace --locked
+
+      - name: Lint workspace
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+  test:
+    needs: check
+    strategy:
+      fail-fast: false
+      matrix: &release-matrix
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            archive: tar.gz
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            archive: tar.gz
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            archive: zip
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          lfs: true
+
+      - name: Install Linux dependencies
+        if: matrix.os == 'ubuntu-latest'
+        uses: ./.github/actions/install-linux-dependencies
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Test workspace
+        run: cargo test --workspace --locked --target ${{ matrix.target }}
+
+  release-build:
+    needs: test
+    if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') }}
+    strategy:
+      fail-fast: false
+      matrix: *release-matrix
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          lfs: true
+
+      - name: Install Linux dependencies
+        if: matrix.os == 'ubuntu-latest'
+        uses: ./.github/actions/install-linux-dependencies
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Prepare release metadata
+        id: meta
+        shell: bash
+        env:
+          REPO_NAME: ${{ github.event.repository.name }}
+          TAG: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
+          TARGET: ${{ matrix.target }}
+          EXT: ${{ matrix.archive }}
+        run: |
+          safe_repo=$(printf '%s' "$REPO_NAME" | tr -c 'A-Za-z0-9._-' '-')
+          safe_repo=${safe_repo#-}
+          safe_repo=${safe_repo%-}
+
+          if [ -z "$safe_repo" ]; then
+            safe_repo=artifact
+          fi
+
+          safe_tag=$(printf '%s' "$TAG" | tr -c 'A-Za-z0-9._-' '-')
+          safe_tag=${safe_tag#-}
+          safe_tag=${safe_tag%-}
+
+          if [ -z "$safe_tag" ]; then
+            safe_tag=tag
+          fi
+
+          short_sha=${SHA::7}
+          filename="${safe_repo}-${safe_tag}-${short_sha}-${TARGET}.${EXT}"
+
+          echo "safe_repo=$safe_repo" >> "$GITHUB_OUTPUT"
+          echo "safe_tag=$safe_tag" >> "$GITHUB_OUTPUT"
+          echo "short_sha=$short_sha" >> "$GITHUB_OUTPUT"
+          echo "filename=$filename" >> "$GITHUB_OUTPUT"
+
+      - name: Build release binaries
+        if: matrix.os != 'macos-latest'
+        env:
+          RUSTFLAGS: -D warnings
+        run: cargo build -p ${{ env.RELEASE_BINARY }} --locked --release --target ${{ matrix.target }}
+
+      - name: Package Unix release archive
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp "target/${{ matrix.target }}/release/$RELEASE_BINARY" dist/
+          tar -czf "${{ steps.meta.outputs.filename }}" -C dist "$RELEASE_BINARY"
+
+      - name: Package macOS app archive
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        run: |
+          cargo install cargo-bundle --locked
+          cargo bundle -p ${{ env.RELEASE_BINARY }} --release --target ${{ matrix.target }} --format osx
+
+          shopt -s nullglob
+          app_paths=(target/${{ matrix.target }}/release/bundle/osx/*.app)
+
+          if [ "${#app_paths[@]}" -ne 1 ]; then
+            printf 'expected exactly one .app bundle, found %s\n' "${#app_paths[@]}" >&2
+            exit 1
+          fi
+
+          app_dir=$(dirname "${app_paths[0]}")
+          app_name=$(basename "${app_paths[0]}")
+
+          tar -czf "${{ steps.meta.outputs.filename }}" -C "$app_dir" "$app_name"
+
+      - name: Package Windows release archive
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path dist | Out-Null
+          $binary = "$env:RELEASE_BINARY"
+          $path = "target/${{ matrix.target }}/release/$binary.exe"
+          Copy-Item $path dist/
+          Compress-Archive -Path "dist/$binary.exe" -DestinationPath "${{ steps.meta.outputs.filename }}"
+
+      - name: Upload release archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.meta.outputs.filename }}
+          path: ${{ steps.meta.outputs.filename }}
+          if-no-files-found: error

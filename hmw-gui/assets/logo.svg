@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 17 64 30" fill="none">
+  <defs>
+    <clipPath id="globe-clip">
+      <circle cx="32" cy="32" r="14"/>
+    </clipPath>
+  </defs>
+  <circle cx="32" cy="32" r="14" fill='#73D2DE'/>
+  <g clip-path="url(#globe-clip)" stroke="#111111" stroke-width="0.5" stroke-linecap="round" fill="none">
+    <path d="M18 32H46"/>
+    <path d="M20 23C25 25 39 25 44 23"/>
+    <path d="M19 27.5C24.5 29 39.5 29 45 27.5"/>
+    <path d="M19 36.5C24.5 35 39.5 35 45 36.5"/>
+    <path d="M20 41C25 39 39 39 44 41"/>
+    <path d="M32 18C24.5 21.5 21.8 26.5 21.8 32C21.8 37.5 24.5 42.5 32 46"/>
+    <path d="M32 18C27.2 21.5 25.2 26.5 25.2 32C25.2 37.5 27.2 42.5 32 46"/>
+    <path d="M32 18C29.7 21.5 28.7 26.5 28.7 32C28.7 37.5 29.7 42.5 32 46"/>
+    <path d="M32 18C39.5 21.5 42.2 26.5 42.2 32C42.2 37.5 39.5 42.5 32 46"/>
+    <path d="M32 18C36.8 21.5 38.8 26.5 38.8 32C38.8 37.5 36.8 42.5 32 46"/>
+    <path d="M32 18C34.3 21.5 35.3 26.5 35.3 32C35.3 37.5 34.3 42.5 32 46"/>
+  </g>
+  <circle cx="32" cy="32" r="14" stroke="#111111" stroke-width="1."/>
+  <path d="M32 32L56 39.797A18 18 0 0 0 56 24.203Z" fill="#679436" stroke="#111111" stroke-width="1."/>
+  <path d="M32 32L8 24.203A18 18 0 0 0 8 39.797Z" fill="#C73E1D" stroke="#111111" stroke-width="1."/>
+</svg>

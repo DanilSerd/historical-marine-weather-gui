@@ -1,0 +1,19 @@
+[package]
+name = "hmw-cli"
+version = "0.1.0"
+edition.workspace = true
+description = "Historical marine weather CLI"
+
+[dependencies]
+clap = { workspace = true }
+colored = { workspace = true }
+indicatif = { workspace = true }
+tokio = { workspace = true }
+console = { workspace = true }
+url = { workspace = true }
+hmw-geo = { path = "../hmw-geo" }
+hmw-data = { path = "../hmw-data" }
+imma-files = { path = "../imma-files" }
+
+[build-dependencies]
+winres = { workspace = true }

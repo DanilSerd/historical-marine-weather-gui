@@ -1,0 +1,22 @@
+[package]
+name = "imma-files"
+version = "0.1.0"
+edition.workspace = true
+
+[dependencies]
+thiserror = { workspace = true }
+tokio = { workspace = true }
+async-channel = { workspace = true }
+imma-parser = { path = "../imma-parser" }
+flate2 = { workspace = true }
+futures = { workspace = true }
+futures-util = { workspace = true }
+tokio-stream = { workspace = true }
+tokio-util = { workspace = true }
+async-stream = { workspace = true }
+reqwest = { workspace = true }
+scraper = { workspace = true }
+url = { workspace = true }
+
+[dev-dependencies]
+axum = { workspace = true }

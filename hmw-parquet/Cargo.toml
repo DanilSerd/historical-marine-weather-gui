@@ -1,0 +1,16 @@
+[package]
+name = "hmw-parquet"
+version = "0.1.0"
+edition.workspace = true
+
+[dependencies]
+datafusion = { workspace = true }
+parquet = { workspace = true }
+arrow_convert = { workspace = true }
+tokio = { workspace = true }
+arrow = { workspace = true }
+futures = { workspace = true }
+chrono = { workspace = true }
+serde = { workspace = true }
+strum = { workspace = true }
+rand = { workspace = true }
