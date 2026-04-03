@@ -19,4 +19,3 @@
 - [ ] The speed of records processed should be a moving average.
 - [ ] Fix the names of the summaries text wrap.
 - [ ] Solve the memory issues on import. Need some way to control how many records to keep in memory before writing out (the current static setting is not enough it should dynamically fluctuate based on available memory)
-- [ ] Remove geohash list from new summary form. Count of geohashes would be enough.

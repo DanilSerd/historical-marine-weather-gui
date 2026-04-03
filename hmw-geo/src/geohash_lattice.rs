@@ -305,6 +305,10 @@ impl LatticeEntry {
             ),
         }
     }
+
+    pub fn geodesic_area_unsigned(&self) -> f64 {
+        self.bbox().geodesic_area_unsigned()
+    }
 }
 
 impl AsRef<str> for LatticeEntry {
