@@ -25,6 +25,7 @@ pub fn fit_square_elements_to_scrollable<'a, M: 'static>(
         if (i + 1) % elements_per_row == 0 {
             column = column.push(row);
             row = iced::widget::Row::new()
+                .spacing(5)
                 .width(Length::Fill)
                 .height(Length::Fixed(square_size));
         }

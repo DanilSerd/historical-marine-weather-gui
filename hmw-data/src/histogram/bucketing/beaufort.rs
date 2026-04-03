@@ -9,7 +9,7 @@ use super::{CardinalOrdinalDirection, DirectionalBucketing, DirectionalBucketing
 use crate::WindObservation;
 
 const BEAUFORT_EDGES: [f32; 12] = [
-    0.5, 1.5, 3.3, 5.4, 7.9, 10.7, 13.8, 17.1, 20.7, 24.4, 28.4, 32.6,
+    0.3, 1.6, 3.4, 5.5, 8.0, 10.8, 13.9, 17.2, 20.8, 24.5, 28.5, 32.7,
 ];
 
 #[derive(Clone, Debug)]
@@ -94,19 +94,19 @@ impl DirectionalBucketing for BeaufortScaleBucketer {
 impl Display for BeaufortScaleBucket {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
-            BeaufortScaleBucket::Calm => "Calm",
-            BeaufortScaleBucket::LightAir => "Light Air",
-            BeaufortScaleBucket::LightBreeze => "Light Breeze",
-            BeaufortScaleBucket::GentleBreeze => "Gentle Breeze",
-            BeaufortScaleBucket::ModerateBreeze => "Moderate Breeze",
-            BeaufortScaleBucket::FreshBreeze => "Fresh Breeze",
-            BeaufortScaleBucket::StrongBreeze => "Strong Breeze",
-            BeaufortScaleBucket::NearGale => "Near Gale",
-            BeaufortScaleBucket::FreshGale => "Fresh Gale",
-            BeaufortScaleBucket::StrongGale => "Strong Gale",
-            BeaufortScaleBucket::Storm => "Storm",
-            BeaufortScaleBucket::ViolentStorm => "Violent Storm",
-            BeaufortScaleBucket::Hurricane => "Hurricane",
+            BeaufortScaleBucket::Calm => "Calm (<1 kt)",
+            BeaufortScaleBucket::LightAir => "Light Air (1-3 kt)",
+            BeaufortScaleBucket::LightBreeze => "Light Breeze (4-6 kt)",
+            BeaufortScaleBucket::GentleBreeze => "Gentle Breeze (7-10 kt)",
+            BeaufortScaleBucket::ModerateBreeze => "Moderate Breeze (11-16 kt)",
+            BeaufortScaleBucket::FreshBreeze => "Fresh Breeze (17-21 kt)",
+            BeaufortScaleBucket::StrongBreeze => "Strong Breeze (22-27 kt)",
+            BeaufortScaleBucket::NearGale => "Near Gale (28-33 kt)",
+            BeaufortScaleBucket::FreshGale => "Fresh Gale (34-40 kt)",
+            BeaufortScaleBucket::StrongGale => "Strong Gale (41-47 kt)",
+            BeaufortScaleBucket::Storm => "Storm (48-55 kt)",
+            BeaufortScaleBucket::ViolentStorm => "Violent Storm (56-63 kt)",
+            BeaufortScaleBucket::Hurricane => "Hurricane (>=64 kt)",
         };
         write!(f, "{}", s)
     }

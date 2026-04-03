@@ -160,6 +160,7 @@ where
                     })
                     .width(Length::FillPortion(2))
                     .height(Length::Fill)
+                    .max_height(20)
                     .into();
 
             let key_description: Element<'_, _> = text(s.to_string())
@@ -202,6 +203,7 @@ where
         ])
         .spacing(8);
         container(side_panel)
+            .padding(5)
             .width(Length::Fill)
             .height(Length::Fill)
             .into()

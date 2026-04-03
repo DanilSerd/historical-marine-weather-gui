@@ -4,4 +4,4 @@ mod tooltip;
 
 pub(crate) use animated_ellipsis::AnimatedEllipsis;
 pub(crate) use double_ended_slider::{DoubleEndedSliderStyle, double_ended_slider};
-pub(crate) use tooltip::{follow_tooltip, follow_tooltip_text};
+pub(crate) use tooltip::{follow_tooltip, follow_tooltip_text, tooltip_content_text};

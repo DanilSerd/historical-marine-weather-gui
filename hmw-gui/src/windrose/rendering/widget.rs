@@ -1,9 +1,20 @@
 use std::sync::Arc;
 
+use crate::widgets::tooltip_content_text;
+use iced::advanced::{
+    Layout, Widget,
+    layout::{self, Node},
+    mouse::Cursor,
+    overlay,
+    renderer::Style,
+    widget::Tree,
+    widget::tree,
+};
 use iced::{
     Color, Element, Font, Padding, Point, Renderer, Theme, Vector,
     widget::{Shader, Text},
 };
+use iced::{Length, Rectangle, Size};
 
 use super::{RoseSector, WindRoseProgram, program::DEFAULT_GRIDLINE_COLOR};
 
@@ -68,22 +79,6 @@ impl WindRoseWidget {
         }
     }
 
-    fn new_tooltip(text: &str) -> Element<'static, (), Theme, Renderer> {
-        let text = Text::new(text.to_string())
-            .size(LABEL_TEXT_SIZE)
-            .color(Color::from_rgba(
-                DEFAULT_GRIDLINE_COLOR.x,
-                DEFAULT_GRIDLINE_COLOR.y,
-                DEFAULT_GRIDLINE_COLOR.z,
-                1.,
-            ))
-            .font(Font {
-                weight: iced::font::Weight::Bold,
-                ..Default::default()
-            });
-        text.into()
-    }
-
     fn new_shader(
         instance: usize,
         sectors: Arc<Box<[RoseSector]>>,
@@ -115,7 +110,7 @@ impl WindRoseWidget {
     }
 
     fn tooltip(&self, hovered_segment: Option<u32>) -> Element<'static, (), Theme, Renderer> {
-        Self::new_tooltip(self.tooltip_text(hovered_segment))
+        tooltip_content_text(self.tooltip_text(hovered_segment))
     }
 
     fn tooltip_text(&self, hovered_segment: Option<u32>) -> &str {
@@ -145,11 +140,6 @@ impl WindRoseWidget {
     }
 }
 
-use iced::advanced::{
-    Layout, Widget, layout::Node, mouse::Cursor, renderer::Style, widget::Tree, widget::tree,
-};
-use iced::{Length, Rectangle, Size};
-
 impl Widget<(), Theme, Renderer> for WindRoseWidget {
     fn size(&self) -> Size<Length> {
         Size::new(Length::Fill, Length::Fill)
@@ -169,9 +159,6 @@ impl Widget<(), Theme, Renderer> for WindRoseWidget {
         renderer: &Renderer,
         limits: &iced::advanced::layout::Limits,
     ) -> Node {
-        let state = tree.state.downcast_ref::<State>();
-        let hovered_segment = state.hovered_segment;
-        let tooltip_position = state.tooltip_position;
         let limits_shrunk = limits.shrink(Padding::new(LABEL_TEXT_SIZE));
         let shader_size = if limits_shrunk.max().width > limits_shrunk.max().height {
             limits_shrunk.max().height
@@ -207,22 +194,6 @@ impl Widget<(), Theme, Renderer> for WindRoseWidget {
         let mut children = vec![shader_node.clone()];
         children.extend(children_iter);
 
-        let mut tooltip = self.tooltip(hovered_segment);
-        let mut tooltip_node =
-            tooltip
-                .as_widget_mut()
-                .layout(tree.children.last_mut().unwrap(), renderer, limits);
-        tooltip_node.align_mut(
-            iced::Alignment::Center,
-            iced::Alignment::Center,
-            limits.max(),
-        );
-        if let Some(position) = tooltip_position {
-            tooltip_node.move_to_mut(position);
-            tooltip_node.translate_mut(Vector::new(0., -LABEL_TEXT_SIZE));
-        }
-        children.push(tooltip_node);
-
         Node::with_children(limits.max(), children)
     }
 
@@ -238,9 +209,7 @@ impl Widget<(), Theme, Renderer> for WindRoseWidget {
     ) {
         let hovered_segment = tree.state.downcast_ref::<State>().hovered_segment;
         let shader = self.shader(hovered_segment);
-        let tooltip = self.tooltip(hovered_segment);
         let iter = std::iter::once(&shader).chain(self.gridline_labels.iter());
-        let iter = iter.chain(std::iter::once(&tooltip));
         let iter = iter.zip(tree.children.iter()).zip(layout.children());
         for ((e, t), l) in iter {
             e.as_widget()
@@ -274,17 +243,36 @@ impl Widget<(), Theme, Renderer> for WindRoseWidget {
         let hovered_segment = position_in
             .and_then(|p| self.find_label(p, Rectangle::new(Point::ORIGIN, bounds.size())));
 
-        let offset = bounds.position() - Vector::new(layout.bounds().x, layout.bounds().y);
-        let tooltip_position = position_in
+        let cursor_position = cursor
+            .position()
             .zip(hovered_segment)
-            .map(|(position, _)| position + Vector::new(offset.x, offset.y));
+            .map(|(position, _)| position);
 
-        if state.hovered_segment != hovered_segment || state.tooltip_position != tooltip_position {
+        if state.hovered_segment != hovered_segment || state.cursor_position != cursor_position {
             state.hovered_segment = hovered_segment;
-            state.tooltip_position = tooltip_position;
+            state.cursor_position = cursor_position;
             shell.invalidate_layout();
             shell.request_redraw();
         }
+    }
+
+    fn overlay<'a>(
+        &'a mut self,
+        tree: &'a mut Tree,
+        _layout: Layout<'a>,
+        _renderer: &Renderer,
+        _viewport: &Rectangle,
+        _translation: Vector,
+    ) -> Option<overlay::Element<'a, (), Theme, Renderer>> {
+        let state = tree.state.downcast_ref::<State>();
+        let hovered_segment = state.hovered_segment?;
+        let cursor_position = state.cursor_position?;
+
+        Some(overlay::Element::new(Box::new(TooltipOverlay {
+            tooltip: self.tooltip(Some(hovered_segment)),
+            tree: tree.children.last_mut().expect("tooltip tree exists"),
+            cursor_position,
+        })))
     }
 
     fn diff(&self, tree: &mut Tree) {
@@ -301,7 +289,56 @@ impl Widget<(), Theme, Renderer> for WindRoseWidget {
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
 struct State {
     hovered_segment: Option<u32>,
-    tooltip_position: Option<Point>,
+    cursor_position: Option<Point>,
+}
+
+struct TooltipOverlay<'a> {
+    tooltip: Element<'static, (), Theme, Renderer>,
+    tree: &'a mut Tree,
+    cursor_position: Point,
+}
+
+impl overlay::Overlay<(), Theme, Renderer> for TooltipOverlay<'_> {
+    fn layout(&mut self, renderer: &Renderer, bounds: Size) -> Node {
+        let viewport = Rectangle::with_size(bounds);
+        let tooltip_node = self.tooltip.as_widget_mut().layout(
+            self.tree,
+            renderer,
+            &layout::Limits::new(Size::ZERO, viewport.size()),
+        );
+        let tooltip_size = tooltip_node.size();
+        let gap = 12.0;
+        let max_x = (viewport.x + viewport.width - tooltip_size.width).max(viewport.x);
+        let max_y = (viewport.y + viewport.height - tooltip_size.height).max(viewport.y);
+        let x = (self.cursor_position.x + gap).clamp(viewport.x, max_x);
+        let y = if self.cursor_position.y - tooltip_size.height - gap < viewport.y {
+            self.cursor_position.y + gap
+        } else {
+            self.cursor_position.y - tooltip_size.height - gap
+        }
+        .clamp(viewport.y, max_y);
+
+        Node::with_children(tooltip_size, vec![tooltip_node]).move_to(Point::new(x, y))
+    }
+
+    fn draw(
+        &self,
+        renderer: &mut Renderer,
+        theme: &Theme,
+        style: &Style,
+        layout: Layout<'_>,
+        cursor: Cursor,
+    ) {
+        self.tooltip.as_widget().draw(
+            self.tree,
+            renderer,
+            theme,
+            style,
+            layout.children().next().expect("tooltip layout exists"),
+            cursor,
+            &Rectangle::with_size(Size::INFINITE),
+        );
+    }
 }
 
 impl From<WindRoseWidget> for Element<'static, (), Theme, Renderer> {

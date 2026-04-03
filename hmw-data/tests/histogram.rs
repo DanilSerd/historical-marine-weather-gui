@@ -17,9 +17,9 @@ async fn test_directional_histogram_with_beaufort_wind_observation() {
         /// Considered:
         yield WindObservation { latticed_point: point!(x: 1.0, y: 1.0).try_into().ok(), year: Some(1990), month: Some(1), day: Some(1), time: NaiveTime::from_hms_opt(0, 0, 0), wind_direction: Some(WindDir::Direction(45)), wind_speed: Some(10.0) };
         yield WindObservation { latticed_point: point!(x: 2.0, y: 1.0).try_into().ok(), year: Some(1991), month: Some(1), day: Some(1), time: NaiveTime::from_hms_opt(1, 0, 0), wind_direction: Some(WindDir::Calm), wind_speed: None };
-        yield WindObservation { latticed_point: point!(x: 3.0, y: 1.0).try_into().ok(), year: Some(1991), month: Some(1), day: None, time: NaiveTime::from_hms_opt(2, 0, 0), wind_direction: Some(WindDir::Variable), wind_speed: Some(0.3)  };
-        yield WindObservation { latticed_point: point!(x: 4.0, y: 1.0).try_into().ok(), year: Some(1992), month: Some(1), day: Some(1), time: None, wind_direction: Some(WindDir::Calm), wind_speed: Some(0.3) };
-        yield WindObservation { latticed_point: point!(x: 5.0, y: 1.0).try_into().ok(), year: Some(1992), month: Some(1), day: Some(2), time: NaiveTime::from_hms_opt(4, 0, 0), wind_direction: Some(WindDir::Direction(180)), wind_speed: Some(0.3) };
+        yield WindObservation { latticed_point: point!(x: 3.0, y: 1.0).try_into().ok(), year: Some(1991), month: Some(1), day: None, time: NaiveTime::from_hms_opt(2, 0, 0), wind_direction: Some(WindDir::Variable), wind_speed: Some(0.2)  };
+        yield WindObservation { latticed_point: point!(x: 4.0, y: 1.0).try_into().ok(), year: Some(1992), month: Some(1), day: Some(1), time: None, wind_direction: Some(WindDir::Calm), wind_speed: Some(0.2) };
+        yield WindObservation { latticed_point: point!(x: 5.0, y: 1.0).try_into().ok(), year: Some(1992), month: Some(1), day: Some(2), time: NaiveTime::from_hms_opt(4, 0, 0), wind_direction: Some(WindDir::Direction(180)), wind_speed: Some(0.2) };
         /// Ignored:
         yield WindObservation { latticed_point: point!(x: 6.0, y: 1.0).try_into().ok(), year: Some(1990), month: Some(1), day: Some(1), time: NaiveTime::from_hms_opt(5, 0, 0), wind_direction: Some(WindDir::Direction(0)), wind_speed: None };
         yield WindObservation { latticed_point: point!(x: 7.0, y: 1.0).try_into().ok(), year: Some(1990), month: Some(1), day: Some(1), time: NaiveTime::from_hms_opt(6, 0, 0), wind_direction: Some(WindDir::Calm), wind_speed: Some(10.0) };
