@@ -17,5 +17,4 @@
 - [ ] Add version to GUI
 - [ ] Publish updates on progress of how many records passed on a timed schedule not based on static number of records.
 - [ ] The speed of records processed should be a moving average.
-- [ ] Fix the names of the summaries text wrap.
 - [ ] Solve the memory issues on import. Need some way to control how many records to keep in memory before writing out (the current static setting is not enough it should dynamically fluctuate based on available memory)

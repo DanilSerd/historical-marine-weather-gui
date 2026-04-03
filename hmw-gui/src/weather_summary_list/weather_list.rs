@@ -194,7 +194,7 @@ impl WeatherList {
                 let mut name: iced::widget::MouseArea<'_, WeatherListMessage, _, _> = mouse_area(
                     iced::widget::text(&summary.params.header.name)
                         .font(font)
-                        .wrapping(iced::widget::text::Wrapping::None),
+                        .wrapping(iced::widget::text::Wrapping::Glyph),
                 )
                 .on_enter(WeatherListMessage::Hovered(summary.params.header.id, true))
                 .on_exit(WeatherListMessage::Hovered(summary.params.header.id, false));
@@ -217,7 +217,7 @@ impl WeatherList {
                     iced::widget::text(summary.params.header.summary_type.symbol())
                         .font(ICON_FONT)
                         .into(),
-                    container(name).width(Length::FillPortion(1)).into(),
+                    container(name).width(Length::FillPortion(3)).into(),
                     container(controls)
                         .width(Length::FillPortion(1))
                         .align_right(Length::Fill)
