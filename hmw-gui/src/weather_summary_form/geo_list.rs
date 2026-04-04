@@ -2,8 +2,6 @@ use hmw_geo::LatticeEntry;
 use iced::{Element, widget::text};
 use std::collections::HashSet;
 
-use crate::utils::format_count;
-
 #[derive(Debug, Clone)]
 pub struct LatticeNodesSelectedList {
     pub nodes: HashSet<LatticeEntry>,
@@ -48,10 +46,12 @@ impl LatticeNodesSelectedList {
             text("Select cells on globe").into()
         } else {
             let area_km2 = (self.area / 1e6).round() as usize;
+            let mut formatter = human_format::Formatter::new();
+            formatter.with_units(" km²");
             text(format!(
-                "{} cells, {} km²",
+                "{} cells, {}",
                 self.nodes.len(),
-                format_count(area_km2),
+                formatter.format(area_km2 as f64),
             ))
             .into()
         }

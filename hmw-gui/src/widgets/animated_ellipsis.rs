@@ -37,11 +37,6 @@ impl AnimatedEllipsis {
         format!("{label}{}", ".".repeat(self.frame))
     }
 
-    /// Builds the longest text this animation can produce for the label.
-    pub(crate) fn max_text(&self, label: &str) -> String {
-        format!("{label}{}", ".".repeat(FRAME_COUNT - 1))
-    }
-
     /// Emits timer ticks while the animation is enabled.
     pub(crate) fn subscription(&self, enabled: bool) -> Subscription<()> {
         match enabled {

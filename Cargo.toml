@@ -36,6 +36,7 @@ geo = "0.32.0"
 geohash = "0.13.1"
 glam = { version = "0.32.1", features = ["bytemuck", "serde"] }
 hexasphere = "18.0.0"
+human_format = "1.2.1"
 iced = { version = "0.14.0", default-features = false, features = ["advanced", "canvas", "image", "lazy", "svg", "tokio", "wgpu", "x11", "wayland"] }
 indicatif = "0.18.4"
 itertools = "0.14.0"

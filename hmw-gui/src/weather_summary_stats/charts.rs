@@ -10,7 +10,6 @@ use plotters::{
 use plotters_iced2::{Chart, ChartBuilder, ChartWidget, DrawingBackend};
 
 use super::doy_coord::DayOfYearly;
-use crate::utils::format_count;
 
 const CHART_HEIGHT: f32 = 300.0;
 const START_OF_LEAP_YEAR: NaiveDate = NaiveDate::from_ymd_opt(2000, 1, 1).unwrap();
@@ -76,11 +75,12 @@ impl<'a> HistogramBarChart<'a> {
             .unwrap();
 
         let x_labels = ((pixels_width / 90) as usize).clamp(2, 24);
+        let formatter = human_format::Formatter::new();
         let _ = chart
             .configure_mesh()
             .label_style(("sans-serif", 12))
             .x_labels(x_labels)
-            .y_label_formatter(&|value| format_count(*value))
+            .y_label_formatter(&|value| formatter.format(*value as f64))
             .draw();
 
         let _ = chart.draw_series(
@@ -111,12 +111,13 @@ impl<'a> HistogramBarChart<'a> {
             .unwrap();
 
         let x_labels = ((pixels_width / 90) as usize).clamp(4, 24);
+        let formatter = human_format::Formatter::new();
         let _ = chart
             .configure_mesh()
             .label_style(("sans-serif", 12))
             .x_label_formatter(&|value| format_hod_label(*value))
             .x_labels(x_labels)
-            .y_label_formatter(&|value| format_count(*value))
+            .y_label_formatter(&|value| formatter.format(*value as f64))
             .draw();
 
         let _ = chart.draw_series(
@@ -150,12 +151,13 @@ impl<'a> HistogramBarChart<'a> {
             .unwrap();
 
         let x_labels = ((pixels_width / 90) as usize).clamp(2, 12);
+        let formatter = human_format::Formatter::new();
         let _ = chart
             .configure_mesh()
             .label_style(("sans-serif", 12))
             .x_label_formatter(&|value| value.to_string())
             .x_labels(x_labels)
-            .y_label_formatter(&|value| format_count(*value))
+            .y_label_formatter(&|value| formatter.format(*value as f64))
             .draw();
 
         let _ = chart.draw_series(
@@ -168,14 +170,6 @@ impl<'a> HistogramBarChart<'a> {
                 .margin(0)
                 .style(BAR_STYLE),
         );
-    }
-
-    fn max_y_count(&self) -> usize {
-        match &self.flavor {
-            HistogramBarChartFlavor::Year(range) => self.histogram.max_year_count(range.clone()),
-            HistogramBarChartFlavor::Doy => self.histogram.max_doy_count(),
-            HistogramBarChartFlavor::Hod => self.histogram.max_hod_count(),
-        }
     }
 }
 
@@ -192,7 +186,7 @@ impl<'a, Message> Chart<Message> for HistogramBarChart<'a> {
 
     fn draw_chart<DB: DrawingBackend>(&self, _state: &Self::State, root: DrawingArea<DB, Shift>) {
         let (width, _) = root.dim_in_pixel();
-        let left_label_area_size = y_axis_label_area_size(&root, self.max_y_count());
+        let left_label_area_size = y_axis_label_area_size(&root);
 
         let builder = ChartBuilder::on(&root);
 
@@ -214,14 +208,11 @@ fn format_hod_label(value: u32) -> String {
     format!("{:02}:00", value)
 }
 
-fn y_axis_label_area_size<DB: DrawingBackend>(
-    root: &DrawingArea<DB, Shift>,
-    max_value: usize,
-) -> u32 {
-    let widest_label = format_count(max_value);
+fn y_axis_label_area_size<DB: DrawingBackend>(root: &DrawingArea<DB, Shift>) -> u32 {
+    let widest_label = "000.00 k";
     let label_style = ("sans-serif", 14).into_text_style(root);
 
-    root.estimate_text_size(&widest_label, &label_style)
+    root.estimate_text_size(widest_label, &label_style)
         .map(|(width, _)| width + Y_LABEL_AREA_PADDING)
         .unwrap_or(DEFAULT_Y_LABEL_AREA_SIZE)
 }

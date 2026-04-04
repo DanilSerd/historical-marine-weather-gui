@@ -6,9 +6,9 @@ use std::time::Instant;
 use chrono::Datelike;
 use iced::task::Handle;
 use iced::widget::{
-    button, column, container, progress_bar, row, scrollable, stack, text, text_input, toggler,
+    button, column, container, progress_bar, row, scrollable, text, text_input, toggler,
 };
-use iced::{Alignment, Color, Element, Font, Length, Subscription, Task, font::Weight};
+use iced::{Alignment, Element, Font, Length, Subscription, Task, font::Weight};
 
 use hmw_data::{
     Error as DataError, FileSource, ParquetWriter, Progress as ImportProgress, WriterOptions,
@@ -18,14 +18,13 @@ use imma_files::RemoteFileIndex;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 
 use crate::collapsable::Collapsible;
-use crate::utils::{format_count, icon_widget};
+use crate::utils::icon_widget;
 use crate::widgets::{AnimatedEllipsis, follow_tooltip_text};
 
 const NOAA_START_YEAR_MIN: i32 = 1662;
 const NOAA_FINAL_DATA_END_YEAR: i32 = 2014;
 const BUTTON_HEIGHT: f32 = 36.0;
 const SOURCE_CONTROLS_HEIGHT: f32 = 40.0;
-const PROGRESS_STATUS_WIDTH: f32 = 260.0;
 const WRITER_OPTIONS_LABEL_WIDTH: f32 = 220.0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -779,14 +778,27 @@ impl DataFileManager {
             0 => 0.0,
             total_files => processed_files as f32 / total_files as f32,
         };
-        let records_progress_text =
-            format_records_progress_message(self.total_items_processed, self.import_started_at);
+        let records_progress_text = {
+            let rate = self
+                .import_started_at
+                .map(|started_at| started_at.elapsed().as_secs_f64())
+                .filter(|elapsed| *elapsed > 0.0)
+                .map(|elapsed| self.total_items_processed as f64 / elapsed)
+                .unwrap_or(0.0);
+
+            let formater = human_format::Formatter::new();
+            format!(
+                "{} records\n({}/s)",
+                formater.format(self.total_items_processed as f64),
+                formater.format(rate)
+            )
+        };
 
         let progress_row = match self.processing_outcome.as_ref() {
             Some(Ok(())) => row([
                 container(text(format!(
                     "Done: {} records",
-                    format_count(self.total_items_processed)
+                    human_format::Formatter::new().format(self.total_items_processed as f64)
                 )))
                 .width(Length::Fill)
                 .into(),
@@ -814,29 +826,15 @@ impl DataFileManager {
                 let progress_text =
                     text(format!("{}/{}", processed_files, self.total_files)).into();
                 let progress_status: Element<'_, Message> = if self.all_files_complete {
-                    container(stack([
-                        text(self.status_ellipsis.max_text("Finalizing"))
-                            .color(Color::TRANSPARENT)
-                            .into(),
-                        text(self.status_ellipsis.text("Finalizing")).into(),
-                    ]))
-                    .into()
+                    container(text(self.status_ellipsis.text("Finalizing"))).into()
                 } else {
-                    stack([
-                        text(records_progress_placeholder())
-                            .color(Color::TRANSPARENT)
-                            .into(),
-                        text(records_progress_text).into(),
-                    ])
-                    .into()
+                    container(text(records_progress_text).width(Length::Fill)).into()
                 };
 
                 row([
                     progress_text,
                     container(progress).width(Length::Fill).into(),
-                    container(progress_status)
-                        .width(Length::Fixed(PROGRESS_STATUS_WIDTH))
-                        .into(),
+                    container(progress_status).width(Length::Fixed(150.)).into(),
                     action_button(
                         "Cancel",
                         Some("Stop the current import. All progress will be lost."),
@@ -1254,20 +1252,6 @@ fn writer_options_parse_uint(s: &str, f: impl Fn(usize) -> WriterOptions) -> Mes
         .ok()
         .map(|i| Message::UpdateWriterOptions(f(i)))
         .unwrap_or_default()
-}
-
-fn format_records_progress_message(count: usize, started_at: Option<Instant>) -> String {
-    let rate = started_at
-        .map(|started_at| started_at.elapsed().as_secs_f64())
-        .filter(|elapsed| *elapsed > 0.0)
-        .map(|elapsed| count as f64 / elapsed)
-        .unwrap_or(0.0) as usize;
-
-    format!("{} records ({}/s)", format_count(count), format_count(rate))
-}
-
-fn records_progress_placeholder() -> &'static str {
-    "999,999,999 records (999,999/s)"
 }
 
 fn writer_options_unavailable(o: &WriterOptions) -> bool {

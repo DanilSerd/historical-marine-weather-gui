@@ -7,10 +7,7 @@ use iced::{
 };
 
 use super::charts::HistogramBarChart;
-use crate::{
-    utils::format_count, weather_summary_stats::charts::HistogramBarChartFlavor,
-    widgets::follow_tooltip_text,
-};
+use crate::{weather_summary_stats::charts::HistogramBarChartFlavor, widgets::follow_tooltip_text};
 
 /// Displays histogram counters and year/day/time charts for one weather summary.
 pub(crate) struct WeatherSummaryStats;
@@ -144,7 +141,8 @@ fn counter_row<Message: 'static>(
                         .size(text_size as f32)
                         .width(Length::FillPortion(3))
                         .into(),
-                    text(format_count(value))
+                    // TODO: human readable count based on locale
+                    text(value)
                         .size(text_size as f32)
                         .width(Length::FillPortion(1))
                         .into(),
@@ -172,8 +170,7 @@ fn chart_title<Message: 'static>(
         .spacing(8);
 
     if missing_count != 0 {
-        title_row = title_row
-            .push(text(format!("(unknown: {} obs.)", format_count(missing_count))).size(13));
+        title_row = title_row.push(text(format!("(unknown: {} obs.)", missing_count)).size(13));
     }
 
     title_row.into()

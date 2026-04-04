@@ -7,25 +7,6 @@ pub fn icon_widget(icon: &str) -> Text<'_> {
     iced::widget::text(icon).font(ICON_FONT)
 }
 
-/// Formats a count with comma separators for display in the GUI.
-pub(crate) fn format_count(value: usize) -> String {
-    value
-        .to_string()
-        .chars()
-        .rev()
-        .enumerate()
-        .flat_map(|(index, ch)| {
-            (index > 0 && index % 3 == 0)
-                .then_some(',')
-                .into_iter()
-                .chain(std::iter::once(ch))
-        })
-        .collect::<String>()
-        .chars()
-        .rev()
-        .collect()
-}
-
 /// Shared control bar icon identifiers.
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum ControlBarIcon {
