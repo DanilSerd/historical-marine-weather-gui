@@ -7,7 +7,7 @@ use iced::{
 };
 
 use super::charts::HistogramBarChart;
-use crate::{weather_summary_stats::charts::HistogramBarChartFlavor, widgets::follow_tooltip_text};
+use crate::{weather_summary_stats::charts::HistogramBarChartFlavor, widgets::follow_tooltip};
 
 /// Displays histogram counters and year/day/time charts for one weather summary.
 pub(crate) struct WeatherSummaryStats;
@@ -130,7 +130,7 @@ fn counter_row<Message: 'static>(
     indent: u16,
     text_size: u16,
 ) -> Element<'static, Message> {
-    follow_tooltip_text(
+    follow_tooltip(
         container(
             row([
                 container(text(""))
@@ -157,7 +157,7 @@ fn counter_row<Message: 'static>(
         )
         .padding([5, 5])
         .style(container::transparent),
-        description,
+        text(description),
     )
 }
 

@@ -15,7 +15,7 @@ const DEFAULT_HEIGHT: f32 = 16.0;
 const MERGED_DRAG_SPLIT_THRESHOLD: f32 = 2.0;
 
 /// Numeric values supported by the double-ended slider.
-pub(crate) trait RangeValue: Copy + PartialOrd {
+pub trait RangeValue: Copy + PartialOrd {
     fn one() -> Self;
     fn into_f64(self) -> f64;
     fn from_f64(value: f64) -> Self;
@@ -79,7 +79,7 @@ impl RangeValue for u16 {
 
 /// Styling for a double-ended slider.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub(crate) struct DoubleEndedSliderStyle {
+pub struct DoubleEndedSliderStyle {
     /// The color of the start handle.
     pub start_handle_color: Color,
     /// The color of the end handle.
@@ -88,7 +88,7 @@ pub(crate) struct DoubleEndedSliderStyle {
 
 impl DoubleEndedSliderStyle {
     /// Creates a new [`DoubleEndedSliderStyle`].
-    pub(crate) fn new(start_handle_color: Color, end_handle_color: Color) -> Self {
+    pub fn new(start_handle_color: Color, end_handle_color: Color) -> Self {
         Self {
             start_handle_color,
             end_handle_color,
@@ -97,7 +97,7 @@ impl DoubleEndedSliderStyle {
 }
 
 /// Creates a new double-ended slider.
-pub(crate) fn double_ended_slider<'a, T, Message, F>(
+pub fn double_ended_slider<'a, T, Message, F>(
     range: RangeInclusive<T>,
     selection: RangeInclusive<T>,
     on_change: F,
@@ -110,7 +110,7 @@ where
 }
 
 /// A horizontal slider with independently draggable start and end handles.
-pub(crate) struct DoubleEndedSlider<T, Message, F>
+pub struct DoubleEndedSlider<T, Message, F>
 where
     F: Fn(RangeInclusive<T>) -> Message,
 {
@@ -143,19 +143,19 @@ where
     }
 
     /// Sets the width of the slider.
-    pub(crate) fn width(mut self, width: impl Into<Length>) -> Self {
+    pub fn width(mut self, width: impl Into<Length>) -> Self {
         self.width = width.into();
         self
     }
 
     /// Sets the step size of the slider.
-    pub(crate) fn step(mut self, step: impl Into<T>) -> Self {
+    pub fn step(mut self, step: impl Into<T>) -> Self {
         self.step = step.into();
         self
     }
 
     /// Sets the style of the slider.
-    pub(crate) fn style(mut self, style: DoubleEndedSliderStyle) -> Self {
+    pub fn style(mut self, style: DoubleEndedSliderStyle) -> Self {
         self.style = style;
         self
     }

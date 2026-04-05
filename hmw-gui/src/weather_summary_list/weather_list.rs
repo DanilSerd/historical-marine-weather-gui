@@ -10,7 +10,7 @@ use crate::{
     consts::ICON_FONT,
     types::{WeatherSummaryId, WeatherSummaryType},
     utils::icon_widget,
-    widgets::{follow_tooltip, follow_tooltip_text},
+    widgets::follow_tooltip,
 };
 
 use super::types::{
@@ -126,10 +126,10 @@ impl WeatherList {
                 let status: WeatherListItemStatus = (&summary.data).into();
                 let summary_status = match &status {
                     WeatherListItemStatus::Loading => {
-                        follow_tooltip_text(icon_widget("⏳"), "Loading")
+                        follow_tooltip(icon_widget("⏳"), iced::widget::text("Loading"))
                     }
                     WeatherListItemStatus::Loaded => {
-                        follow_tooltip_text(icon_widget("✔︎"), "Loaded")
+                        follow_tooltip(icon_widget("✔︎"), iced::widget::text("Loaded"))
                     }
                     WeatherListItemStatus::Error(e) => follow_tooltip(
                         icon_widget("❌"),
@@ -155,7 +155,7 @@ impl WeatherList {
                     iced::widget::checkbox(false).into()
                 };
 
-                let control_menu: Element<'_, _> = follow_tooltip_text(
+                let control_menu: Element<'_, _> = follow_tooltip(
                     iced::widget::pick_list(
                         &ALL_LIST_ITEM_CONTROL_OPTIONS[..],
                         Option::<WeatherListItemControlOption>::None,
@@ -171,7 +171,7 @@ impl WeatherList {
                     .width(Length::Fixed(50.))
                     .placeholder("⚙︎")
                     .handle(iced::widget::pick_list::Handle::None),
-                    "Options",
+                    iced::widget::text("Options"),
                 );
 
                 let mut controls = iced::widget::row([]);

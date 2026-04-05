@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use crate::widgets::tooltip_content_text;
 use iced::advanced::{
     Layout, Widget,
     layout::{self, Node},
@@ -12,7 +11,7 @@ use iced::advanced::{
 };
 use iced::{
     Color, Element, Font, Padding, Point, Renderer, Theme, Vector,
-    widget::{Shader, Text},
+    widget::{Shader, Text, container, text},
 };
 use iced::{Length, Rectangle, Size};
 
@@ -110,7 +109,10 @@ impl WindRoseWidget {
     }
 
     fn tooltip(&self, hovered_segment: Option<u32>) -> Element<'static, (), Theme, Renderer> {
-        tooltip_content_text(self.tooltip_text(hovered_segment))
+        container(text(self.tooltip_text(hovered_segment).to_string()))
+            .padding(6)
+            .style(container::bordered_box)
+            .into()
     }
 
     fn tooltip_text(&self, hovered_segment: Option<u32>) -> &str {

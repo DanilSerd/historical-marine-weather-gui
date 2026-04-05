@@ -1,7 +1,7 @@
 use iced::widget::{Row, Text, button, row, text};
 use iced::{Alignment, Element};
 
-use crate::{consts::ICON_FONT, widgets::follow_tooltip_text};
+use crate::{consts::ICON_FONT, widgets::follow_tooltip};
 
 pub fn icon_widget(icon: &str) -> Text<'_> {
     iced::widget::text(icon).font(ICON_FONT)
@@ -53,5 +53,5 @@ pub(crate) fn tooltip_button<'a, Message: Clone + 'a>(
         None => button(icon_label(icon, label)),
     };
 
-    follow_tooltip_text(button, full_name)
+    follow_tooltip(button, text(full_name))
 }

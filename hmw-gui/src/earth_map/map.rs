@@ -11,7 +11,7 @@ use super::{
     pipelines::spheroid::SpheroidTextureData,
     program::{CellSelection, EarthMapColors, EarthMapProgram, EarthMapProgramMessage},
 };
-use crate::{assets::Assets, widgets::follow_tooltip_text};
+use crate::{assets::Assets, widgets::follow_tooltip};
 
 const DEFAULT_SUBDIVISIONS: usize = 20;
 const HELP_ICON_SIZE: f32 = 64.0;
@@ -107,12 +107,12 @@ impl EarthMap {
         let mut buttons: Vec<Element<'_, EarthMapMessage>> = vec![];
 
         if show_clear_selection {
-            buttons.push(follow_tooltip_text(
+            buttons.push(follow_tooltip(
                 button(text("Clear").size(16))
                     .padding([6, 12])
                     .style(button::danger)
                     .on_press(EarthMapMessage::ClearSelection),
-                "Clear selected cells",
+                text("Clear selected cells"),
             ));
         }
 

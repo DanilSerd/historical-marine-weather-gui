@@ -19,7 +19,7 @@ use tokio_stream::wrappers::UnboundedReceiverStream;
 
 use crate::collapsable::Collapsible;
 use crate::utils::icon_widget;
-use crate::widgets::{AnimatedEllipsis, follow_tooltip_text};
+use crate::widgets::{AnimatedEllipsis, follow_tooltip};
 
 const NOAA_START_YEAR_MIN: i32 = 1662;
 const NOAA_FINAL_DATA_END_YEAR: i32 = 2014;
@@ -1088,7 +1088,7 @@ fn action_button<'a>(
     };
 
     match tooltip {
-        Some(t) => follow_tooltip_text(button, t),
+        Some(t) => follow_tooltip(button, text(t)),
         None => button.into(),
     }
 }
