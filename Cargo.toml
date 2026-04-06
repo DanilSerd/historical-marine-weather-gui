@@ -38,6 +38,7 @@ glam = { version = "0.32.1", features = ["bytemuck", "serde"] }
 hexasphere = "18.0.0"
 human_format = "1.2.1"
 iced = { version = "0.14.0", default-features = false, features = ["advanced", "canvas", "image", "lazy", "svg", "tokio", "wgpu", "x11", "wayland"] }
+iced_aksel = "0.3.0"
 indicatif = "0.18.4"
 itertools = "0.14.0"
 ktx2 = "0.4.0"
@@ -46,8 +47,6 @@ ndhistogram = "0.11.0"
 nom = { version = "8.0.0", features = ["alloc"] }
 ordered-float = "5.3.0"
 parquet = { version = "57.3.0", features = ["async"] }
-plotters = { version = "0.3", default-features = false, features = ["chrono", "histogram"] }
-plotters-iced2 = "0.14"
 rand = { version = "0.10.0", features = ["alloc"] }
 rayon = "1.11.0"
 reqwest = { version = "0.13.2", features = ["blocking", "stream"] }

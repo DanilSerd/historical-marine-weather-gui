@@ -1,218 +1,225 @@
-use std::ops::RangeInclusive;
+use std::{hash::Hash, ops::RangeInclusive};
 
-use chrono::{Days, NaiveDate};
+use chrono::{Datelike, NaiveDate};
 use hmw_data::DateTimeHistogram;
 use iced::{Element, Length};
-use plotters::{
-    coord::{Shift, ranged1d::IntoSegmentedCoord},
-    prelude::*,
+use iced_aksel::{
+    Axis, Chart, Plot, PlotData, PlotPoint, State,
+    axis::{Position, TickContext, TickResult},
+    scale::{Linear, Tick},
+    shape::Rectangle,
 };
-use plotters_iced2::{Chart, ChartBuilder, ChartWidget, DrawingBackend};
-
-use super::doy_coord::DayOfYearly;
 
 const CHART_HEIGHT: f32 = 300.0;
 const START_OF_LEAP_YEAR: NaiveDate = NaiveDate::from_ymd_opt(2000, 1, 1).unwrap();
-const START_OF_NEXT_YEAR: NaiveDate = NaiveDate::from_ymd_opt(2001, 1, 1).unwrap();
-const Y_LABEL_AREA_PADDING: u32 = 4;
-const DEFAULT_Y_LABEL_AREA_SIZE: u32 = 32;
+const X_AXIS_ID: &str = "x";
+const Y_AXIS_ID: &str = "y";
 
-const BAR_STYLE: ShapeStyle = ShapeStyle {
-    color: RGBAColor(36, 92, 135, 1.),
-    filled: true,
-    stroke_width: 0,
-};
+pub(super) struct HistogramBarChart {
+    pub(super) flavor: HistogramBarChartFlavor,
+    state: State<&'static str, f64>,
+    bars: iced_aksel::Cached<HistogramBars>,
+}
 
+impl HistogramBarChart {
+    pub(super) fn new(histogram: &DateTimeHistogram, flavor: HistogramBarChartFlavor) -> Self {
+        let human_formater = human_format::Formatter::new();
+        let max = flavor.max_count(histogram) as f64;
+        let state = State::new()
+            .with_axis(
+                X_AXIS_ID,
+                Axis::new(flavor.x_domain(), Position::Bottom)
+                    .with_thickness(42.0)
+                    .skip_overlapping_labels(8.0)
+                    .with_tick_renderer(flavor.x_tick_renderer()),
+            )
+            .with_axis(
+                Y_AXIS_ID,
+                Axis::new(Linear::new(0., max + max * 0.05), Position::Left)
+                    .with_tick_renderer(move |ctx: TickContext<'_, f64>| {
+                        let mut result = TickResult::default();
+                        if ctx.tick.level == 0 {
+                            result = result.grid_line(ctx.gridline());
+                            if ctx.tick.value <= max {
+                                result = result
+                                    .label(ctx.label(human_formater.format(ctx.tick.value)))
+                                    .tick_line(ctx.tickline());
+                            }
+                        }
+                        result
+                    })
+                    .with_thickness(70)
+                    .style(|style| {
+                        // TODO: Fix upstream the spine rendering escaping the widget. Also affects
+                        // the x axis.
+                        style.spine.width = 0.0.into();
+                    }),
+            );
+        let bars = iced_aksel::Cached::new(HistogramBars::from_histogram(histogram, &flavor));
+
+        Self {
+            bars,
+            state,
+            flavor,
+        }
+    }
+
+    pub(super) fn view<Message: Clone + 'static>(&self) -> Element<'_, Message> {
+        Chart::<_, _, Message, ()>::new(&self.state)
+            .plot_data(&self.bars, X_AXIS_ID, Y_AXIS_ID)
+            .width(Length::Fill)
+            .height(Length::Fixed(CHART_HEIGHT))
+            .into()
+    }
+}
+
+struct HistogramBars {
+    bins: Vec<HistogramBin>,
+}
+
+struct HistogramBin {
+    start: f64,
+    end: f64,
+    count: f64,
+}
+
+impl HistogramBars {
+    fn from_histogram(histogram: &DateTimeHistogram, flavor: &HistogramBarChartFlavor) -> Self {
+        let bins = match flavor {
+            HistogramBarChartFlavor::Year(year_range) => histogram
+                .iter_year(year_range.clone())
+                .map(|bucket| HistogramBin {
+                    start: bucket.year as f64,
+                    end: bucket.year as f64 + 1.,
+                    count: bucket.count as f64,
+                })
+                .collect(),
+            HistogramBarChartFlavor::Doy => histogram
+                .iter_doy()
+                .map(|bucket| HistogramBin {
+                    start: bucket.day as f64,
+                    end: bucket.day as f64 + 1.0,
+                    count: bucket.count as f64,
+                })
+                .collect(),
+            HistogramBarChartFlavor::Hod => histogram
+                .iter_hod()
+                .map(|bucket| HistogramBin {
+                    start: bucket.hour as f64,
+                    end: bucket.hour as f64 + 1.0,
+                    count: bucket.count as f64,
+                })
+                .collect(),
+        };
+
+        Self { bins }
+    }
+}
+
+impl<Message, Tag, Renderer> PlotData<f64, Message, Tag, Renderer> for HistogramBars
+where
+    Message: Clone,
+    Tag: Hash + Eq + Clone,
+    Renderer: iced_aksel::Renderer,
+{
+    fn draw(&self, plot: &mut Plot<'_, f64, Message, Tag, Renderer>, theme: &iced::Theme) {
+        let bar_color = theme.extended_palette().primary.base.color;
+
+        self.bins.iter().for_each(|bin| {
+            plot.render(
+                Rectangle::corners(
+                    PlotPoint::new(bin.start, 0.0),
+                    PlotPoint::new(bin.end, bin.count),
+                )
+                .fill(bar_color),
+            );
+        });
+    }
+}
+
+#[derive(Clone)]
 pub(super) enum HistogramBarChartFlavor {
     Year(RangeInclusive<i32>),
     Doy,
     Hod,
 }
 
-pub(super) struct HistogramBarChart<'a> {
-    histogram: &'a DateTimeHistogram,
-    flavor: HistogramBarChartFlavor,
-}
-
-impl<'a> HistogramBarChart<'a> {
-    pub(super) fn new(histogram: &'a DateTimeHistogram, flavor: HistogramBarChartFlavor) -> Self {
-        Self { histogram, flavor }
-    }
-
-    pub(super) fn view<Message: 'static>(self) -> Element<'a, Message> {
-        ChartWidget::new(self)
-            .width(Length::Fill)
-            .height(Length::Fixed(CHART_HEIGHT))
-            .into()
-    }
-
-    fn configure_builder<DB: DrawingBackend>(
-        &self,
-        chart_builder: &mut ChartBuilder<DB>,
-        left_label_area_size: u32,
-    ) {
-        chart_builder
-            .margin_top(8)
-            .margin_right(16)
-            .margin_bottom(16)
-            .set_label_area_size(LabelAreaPosition::Left, left_label_area_size)
-            .set_label_area_size(LabelAreaPosition::Bottom, 42);
-    }
-
-    fn build_doy_chart<DB: DrawingBackend>(
-        &self,
-        mut chart_builder: ChartBuilder<DB>,
-        pixels_width: u32,
-        left_label_area_size: u32,
-    ) {
-        self.configure_builder(&mut chart_builder, left_label_area_size);
-
-        let mut chart = chart_builder
-            .build_cartesian_2d(
-                DayOfYearly::from(START_OF_LEAP_YEAR..START_OF_NEXT_YEAR).into_segmented(),
-                0usize..self.histogram.max_doy_count(),
-            )
-            .unwrap();
-
-        let x_labels = ((pixels_width / 90) as usize).clamp(2, 24);
-        let formatter = human_format::Formatter::new();
-        let _ = chart
-            .configure_mesh()
-            .label_style(("sans-serif", 12))
-            .x_labels(x_labels)
-            .y_label_formatter(&|value| formatter.format(*value as f64))
-            .draw();
-
-        let _ = chart.draw_series(
-            Histogram::vertical(&chart)
-                .data(self.histogram.iter_doy().map(|bucket| {
-                    (
-                        START_OF_LEAP_YEAR
-                            .checked_add_days(Days::new(bucket.day as u64))
-                            .unwrap(),
-                        bucket.count,
-                    )
-                }))
-                .margin(0)
-                .style(BAR_STYLE),
-        );
-    }
-
-    fn build_hod_chart<DB: DrawingBackend>(
-        &self,
-        mut chart_builder: ChartBuilder<DB>,
-        pixels_width: u32,
-        left_label_area_size: u32,
-    ) {
-        self.configure_builder(&mut chart_builder, left_label_area_size);
-
-        let mut chart = chart_builder
-            .build_cartesian_2d(0u32..24, 0usize..self.histogram.max_hod_count())
-            .unwrap();
-
-        let x_labels = ((pixels_width / 90) as usize).clamp(4, 24);
-        let formatter = human_format::Formatter::new();
-        let _ = chart
-            .configure_mesh()
-            .label_style(("sans-serif", 12))
-            .x_label_formatter(&|value| format_hod_label(*value))
-            .x_labels(x_labels)
-            .y_label_formatter(&|value| formatter.format(*value as f64))
-            .draw();
-
-        let _ = chart.draw_series(
-            Histogram::vertical(&chart)
-                .data(
-                    self.histogram
-                        .iter_hod()
-                        .map(|bucket| (bucket.hour, bucket.count)),
-                )
-                .margin(0)
-                .style(BAR_STYLE),
-        );
-    }
-
-    fn build_year_chart<DB: DrawingBackend>(
-        &self,
-        mut chart_builder: ChartBuilder<DB>,
-        pixels_width: u32,
-        year_range: RangeInclusive<i32>,
-        left_label_area_size: u32,
-    ) {
-        self.configure_builder(&mut chart_builder, left_label_area_size);
-
-        let year_start = *year_range.start();
-        let year_end = *year_range.end() + 1;
-        let mut chart = chart_builder
-            .build_cartesian_2d(
-                year_start..year_end,
-                0usize..self.histogram.max_year_count(year_range.clone()),
-            )
-            .unwrap();
-
-        let x_labels = ((pixels_width / 90) as usize).clamp(2, 12);
-        let formatter = human_format::Formatter::new();
-        let _ = chart
-            .configure_mesh()
-            .label_style(("sans-serif", 12))
-            .x_label_formatter(&|value| value.to_string())
-            .x_labels(x_labels)
-            .y_label_formatter(&|value| formatter.format(*value as f64))
-            .draw();
-
-        let _ = chart.draw_series(
-            Histogram::vertical(&chart)
-                .data(
-                    self.histogram
-                        .iter_year(year_range.clone())
-                        .map(|bucket| (bucket.year, bucket.count)),
-                )
-                .margin(0)
-                .style(BAR_STYLE),
-        );
-    }
-}
-
-impl<'a, Message> Chart<Message> for HistogramBarChart<'a> {
-    type State = ();
-
-    fn build_chart<DB: DrawingBackend>(
-        &self,
-        _state: &Self::State,
-        _chart_builder: ChartBuilder<DB>,
-    ) {
-        unimplemented!("draw_chart is overriden so this is not used");
-    }
-
-    fn draw_chart<DB: DrawingBackend>(&self, _state: &Self::State, root: DrawingArea<DB, Shift>) {
-        let (width, _) = root.dim_in_pixel();
-        let left_label_area_size = y_axis_label_area_size(&root);
-
-        let builder = ChartBuilder::on(&root);
-
-        match &self.flavor {
-            HistogramBarChartFlavor::Year(range) => {
-                self.build_year_chart(builder, width, range.clone(), left_label_area_size)
+impl HistogramBarChartFlavor {
+    fn x_domain(&self) -> Linear<f64, f32> {
+        match self {
+            HistogramBarChartFlavor::Year(r) => {
+                let r = r.clone();
+                let years = r.end() - r.start();
+                let step_by = if years >= 100 {
+                    10
+                } else if years >= 50 {
+                    5
+                } else if years >= 20 {
+                    2
+                } else {
+                    1
+                };
+                Linear::new_with_tick_fn(*r.start() as f64, *r.end() as f64 + 1., move |_| {
+                    r.clone()
+                        .step_by(step_by)
+                        .map(|year| Tick {
+                            value: year as f64,
+                            level: 0,
+                        })
+                        .collect()
+                })
             }
-            HistogramBarChartFlavor::Doy => {
-                self.build_doy_chart(builder, width, left_label_area_size)
-            }
-            HistogramBarChartFlavor::Hod => {
-                self.build_hod_chart(builder, width, left_label_area_size)
-            }
+            HistogramBarChartFlavor::Doy => Linear::new_with_tick_fn(0.0, 366.0, |_| {
+                (1..=12)
+                    .map(|month| Tick {
+                        value: NaiveDate::from_ymd_opt(2000, month, 1).unwrap().ordinal0() as f64,
+                        level: 0,
+                    })
+                    .collect()
+            }),
+            HistogramBarChartFlavor::Hod => Linear::new_with_tick_fn(0.0, 24.0, |_| {
+                (0..24)
+                    .map(|hour| Tick {
+                        value: hour as f64,
+                        level: 0,
+                    })
+                    .collect()
+            }),
         }
     }
-}
 
-fn format_hod_label(value: u32) -> String {
-    format!("{:02}:00", value)
-}
+    fn x_tick_renderer(&self) -> impl FnMut(TickContext<'_, f64>) -> TickResult + use<> {
+        match self {
+            HistogramBarChartFlavor::Doy => |ctx: TickContext<'_, f64>| {
+                let date = START_OF_LEAP_YEAR
+                    .checked_add_days(chrono::Days::new(ctx.tick.value.floor() as u64))
+                    .unwrap();
+                let month = chrono::Month::try_from(u8::try_from(date.month()).unwrap()).unwrap();
+                TickResult::default()
+                    .tick_line(ctx.tickline())
+                    .grid_line(ctx.gridline())
+                    .label(ctx.label(format!("{} {}", &month.name()[0..3], date.day())))
+            },
+            HistogramBarChartFlavor::Year(_) => |ctx: TickContext<'_, f64>| {
+                TickResult::default()
+                    .tick_line(ctx.tickline())
+                    .grid_line(ctx.gridline())
+                    .label(ctx.label((ctx.tick.value as i32).to_string()))
+            },
+            HistogramBarChartFlavor::Hod => |ctx: TickContext<'_, f64>| {
+                TickResult::default()
+                    .tick_line(ctx.tickline())
+                    .grid_line(ctx.gridline())
+                    .label(ctx.label(format!("{:02}:00", ctx.tick.value as u32)))
+            },
+        }
+    }
 
-fn y_axis_label_area_size<DB: DrawingBackend>(root: &DrawingArea<DB, Shift>) -> u32 {
-    let widest_label = "000.00 k";
-    let label_style = ("sans-serif", 14).into_text_style(root);
-
-    root.estimate_text_size(widest_label, &label_style)
-        .map(|(width, _)| width + Y_LABEL_AREA_PADDING)
-        .unwrap_or(DEFAULT_Y_LABEL_AREA_SIZE)
+    fn max_count(&self, histogram: &DateTimeHistogram) -> usize {
+        match self {
+            HistogramBarChartFlavor::Year(range) => histogram.max_year_count(range.clone()).max(1),
+            HistogramBarChartFlavor::Doy => histogram.max_doy_count().max(1),
+            HistogramBarChartFlavor::Hod => histogram.max_hod_count().max(1),
+        }
+    }
 }

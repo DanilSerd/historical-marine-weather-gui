@@ -10,17 +10,44 @@ use super::charts::HistogramBarChart;
 use crate::{weather_summary_stats::charts::HistogramBarChartFlavor, widgets::follow_tooltip};
 
 /// Displays histogram counters and year/day/time charts for one weather summary.
-pub(crate) struct WeatherSummaryStats;
+pub(crate) struct WeatherSummaryStats {
+    charts: Vec<HistogramBarChart>,
+}
 
 impl WeatherSummaryStats {
     /// Builds the stats panel for a loaded weather summary.
+    pub(crate) fn new(stats: HistogramStats<'_>, year_range: Option<RangeInclusive<i32>>) -> Self {
+        let mut charts = Vec::with_capacity(3);
+        charts.push(HistogramBarChart::new(
+            stats.date_time,
+            HistogramBarChartFlavor::Hod,
+        ));
+        charts.push(HistogramBarChart::new(
+            stats.date_time,
+            HistogramBarChartFlavor::Doy,
+        ));
+        if let Some(yr) = year_range { charts.push(HistogramBarChart::new(
+            stats.date_time,
+            HistogramBarChartFlavor::Year(yr),
+        )) };
+        Self { charts }
+    }
+
     pub(crate) fn view<'a, Message: Clone + 'static>(
+        &'a self,
         title: &'a str,
         stats: HistogramStats<'a>,
-        year_range: Option<RangeInclusive<i32>>,
         on_back: Message,
     ) -> Element<'a, Message> {
-        let mut c = column([
+        let mut skipped_breakdown = stats
+            .histogram_counters
+            .skipped
+            .iter()
+            .map(|(reason, count)| (reason.to_string(), *count))
+            .collect::<Vec<_>>();
+        skipped_breakdown.sort_by(|left, right| left.0.cmp(&right.0));
+
+        let mut content = column([
             row([
                 button("Back")
                     .padding([8, 14])
@@ -32,58 +59,49 @@ impl WeatherSummaryStats {
             .align_y(Alignment::Center)
             .spacing(16)
             .into(),
-            counters_table(&stats).into(),
-            chart_title(
-                "Hour-of-Day Distribution",
-                stats.date_time.counters.missing_time,
-            ),
-            chart_section(HistogramBarChart::new(
-                stats.date_time,
-                HistogramBarChartFlavor::Hod,
-            ))
-            .into(),
-            chart_title(
-                "Day-of-Year Distribution",
-                stats.date_time.counters.missing_date,
-            ),
-            chart_section(HistogramBarChart::new(
-                stats.date_time,
-                HistogramBarChartFlavor::Doy,
-            ))
-            .into(),
+            counters_table(stats.histogram_counters.inserted, &skipped_breakdown).into(),
         ])
         .spacing(12)
         .width(Length::Fill);
 
-        if let Some(yr) = year_range {
-            let yd = chart_section(HistogramBarChart::new(
-                stats.date_time,
-                HistogramBarChartFlavor::Year(yr),
-            ));
-            c = c.push(chart_title(
-                "Year Distribution",
-                stats.date_time.counters.missing_year,
-            ));
-            c = c.push(<Element<'a, Message>>::from(yd));
+        for chart in self.charts.iter() {
+            let (title, missing) = match &chart.flavor {
+                HistogramBarChartFlavor::Year(_) => {
+                    ("Year Distribution", stats.date_time.counters.missing_year)
+                }
+                HistogramBarChartFlavor::Doy => (
+                    "Day-of-Year Distribution",
+                    stats.date_time.counters.missing_date,
+                ),
+                HistogramBarChartFlavor::Hod => (
+                    "Hour-of-Day Distribution",
+                    stats.date_time.counters.missing_time,
+                ),
+            };
+            content = content.push(chart_title(title, missing));
+
+            content = content.push(chart.view());
         }
-        c.into()
+
+        content.into()
     }
 }
 
-fn counters_table<'a, Message: 'static>(
-    stats: &HistogramStats<'a>,
-) -> iced::widget::Column<'a, Message> {
-    let histogram = stats.histogram_counters;
-    let total_skipped = histogram.skipped.values().copied().sum::<usize>();
-    let mut skipped_breakdown = histogram.skipped.iter().collect::<Vec<_>>();
-    skipped_breakdown.sort_by_key(|(reason, _)| **reason);
+fn counters_table<Message: 'static>(
+    inserted_count: usize,
+    skipped_breakdown: &[(String, usize)],
+) -> iced::widget::Column<'static, Message> {
+    let total_skipped = skipped_breakdown
+        .iter()
+        .map(|(_, count)| *count)
+        .sum::<usize>();
 
     let mut rows = Vec::new();
 
-    if histogram.inserted != 0 {
+    if inserted_count != 0 {
         rows.push(counter_row(
             "In summary".to_string(),
-            histogram.inserted,
+            inserted_count,
             "Count of observations included in the summary.".to_string(),
             0,
             16,
@@ -99,9 +117,9 @@ fn counters_table<'a, Message: 'static>(
             16,
         ));
 
-        for (reason, count) in skipped_breakdown {
+        for (reason, count) in skipped_breakdown.iter() {
             rows.push(counter_row(
-                reason.to_string(),
+                reason.clone(),
                 *count,
                 format!("Count of observations skipped because: {}", reason),
                 20,
@@ -110,17 +128,13 @@ fn counters_table<'a, Message: 'static>(
         }
     }
 
-    let mut counters = column([]).spacing(0);
-
-    for (index, row) in rows.into_iter().enumerate() {
-        if index != 0 {
-            counters = counters.push(rule::horizontal(1));
-        }
-
-        counters = counters.push(row);
-    }
-
-    counters
+    rows.into_iter().enumerate().fold(
+        column([]).spacing(0),
+        |counters, (index, row)| match index {
+            0 => counters.push(row),
+            _ => counters.push(rule::horizontal(1)).push(row),
+        },
+    )
 }
 
 fn counter_row<Message: 'static>(
@@ -141,7 +155,7 @@ fn counter_row<Message: 'static>(
                         .size(text_size as f32)
                         .width(Length::FillPortion(3))
                         .into(),
-                    // TODO: human readable count based on locale
+                    // TODO: Human readable value based on locale.
                     text(value)
                         .size(text_size as f32)
                         .width(Length::FillPortion(1))
@@ -174,10 +188,4 @@ fn chart_title<Message: 'static>(
     }
 
     title_row.into()
-}
-
-fn chart_section<'a, Message: 'static>(
-    chart: HistogramBarChart<'a>,
-) -> iced::widget::Column<'a, Message> {
-    column([chart.view()]).spacing(8)
 }

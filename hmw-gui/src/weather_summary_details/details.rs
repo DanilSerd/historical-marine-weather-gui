@@ -13,10 +13,15 @@ use crate::{
     weather_summary_stats::WeatherSummaryStats,
 };
 
-#[derive(Debug, Clone, Default)]
+#[derive(Default)]
 pub struct WeatherSummaryDetails {
     list: HashMap<WeatherSummaryId, WeatherSummaryControl>,
-    selected_stats_summary: Option<WeatherSummaryId>,
+    selected_stats: Option<SelectedStats>,
+}
+
+struct SelectedStats {
+    id: WeatherSummaryId,
+    view: WeatherSummaryStats,
 }
 
 #[derive(Debug, Clone)]
@@ -46,16 +51,21 @@ impl WeatherSummaryDetails {
         });
 
         if self
-            .selected_stats_summary
-            .and_then(|id| self.list.get(&id))
+            .selected_stats
+            .as_ref()
+            .and_then(|selected| self.list.get(&selected.id))
             .map(|control| !control.visible)
             .unwrap_or(false)
         {
-            self.selected_stats_summary = None;
+            self.selected_stats = None;
         }
     }
 
-    pub fn update(&mut self, message: WeatherSummaryDetailsMessage) {
+    pub fn update(
+        &mut self,
+        message: WeatherSummaryDetailsMessage,
+        collection: &WeatherSummaryCollection,
+    ) {
         match message {
             WeatherSummaryDetailsMessage::ToggleShowPointsOnMap(id, selected) => {
                 if let Some(control) = self.list.get_mut(&id) {
@@ -63,10 +73,33 @@ impl WeatherSummaryDetails {
                 }
             }
             WeatherSummaryDetailsMessage::OpenStats(id) => {
-                self.selected_stats_summary = Some(id);
+                let Some(control) = self.list.get(&id) else {
+                    return;
+                };
+                if !control.visible {
+                    return;
+                }
+
+                let Some(summary) = collection.get(&id) else {
+                    return;
+                };
+                let Some(stats) = summary.data.stats() else {
+                    return;
+                };
+
+                let year_range = summary
+                    .params
+                    .epoch
+                    .get_year_range()
+                    .map(|range| *range.start() as i32..=*range.end() as i32);
+
+                self.selected_stats = Some(SelectedStats {
+                    id,
+                    view: WeatherSummaryStats::new(stats, year_range),
+                });
             }
             WeatherSummaryDetailsMessage::CloseStats => {
-                self.selected_stats_summary = None;
+                self.selected_stats = None;
             }
         }
     }
@@ -85,22 +118,15 @@ impl WeatherSummaryDetails {
         &'a self,
         collection: &'a WeatherSummaryCollection,
     ) -> Element<'a, WeatherSummaryDetailsMessage> {
-        if let Some(selected_id) = self.selected_stats_summary
-            && let Some(control) = self.list.get(&selected_id)
+        if let Some(selected_stats) = self.selected_stats.as_ref()
+            && let Some(control) = self.list.get(&selected_stats.id)
             && control.visible
-            && let Some(summary) = collection.get(&selected_id)
+            && let Some(summary) = collection.get(&selected_stats.id)
             && let Some(stats) = summary.data.stats()
         {
-            let year_range = summary
-                .params
-                .epoch
-                .get_year_range()
-                .map(|range| *range.start() as i32..=*range.end() as i32);
-
-            return container(scrollable(WeatherSummaryStats::view(
+            return container(scrollable(selected_stats.view.view(
                 &summary.params.header.name,
                 stats,
-                year_range,
                 WeatherSummaryDetailsMessage::CloseStats,
             )))
             .width(Length::Fill)

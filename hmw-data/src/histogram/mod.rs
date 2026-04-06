@@ -12,4 +12,4 @@ pub use date_time_histogram::{DateTimeHistogram, GetDate, GetTime, GetYear};
 pub use direction::CardinalOrdinalDirection;
 pub use directional_histogram::DirectionalIntensity;
 pub use directional_histogram::DirectionalIntensityHistogram;
-pub use stats::HistogramStats;
+pub use stats::{HistogramCounters, HistogramStats};

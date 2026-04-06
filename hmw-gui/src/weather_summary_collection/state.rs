@@ -210,7 +210,7 @@ impl WeatherSummaryCollectionScreensState {
                 Task::none()
             }
             WeatherSummaryCollectionMessage::WeatherSummaryDetailsMessage(m) => {
-                self.summary_details.update(m);
+                self.summary_details.update(m, &self.collection);
                 map_highlight_changed = true;
                 Task::none()
             }
