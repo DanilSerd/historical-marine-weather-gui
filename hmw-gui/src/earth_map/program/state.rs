@@ -133,10 +133,6 @@ impl EarthMapState {
     }
 
     fn update_keyboard_modifiers(&mut self, event: &ShaderEvent) -> ShaderEventStatus {
-        if self.cursor_point_normal.is_none() {
-            return ShaderEventStatus::Ignored;
-        }
-
         let shift_pressed = match event {
             ShaderEvent::Keyboard(iced::keyboard::Event::KeyPressed { modifiers, .. }) => {
                 modifiers.shift()

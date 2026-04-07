@@ -26,10 +26,12 @@ impl WeatherSummaryStats {
             stats.date_time,
             HistogramBarChartFlavor::Doy,
         ));
-        if let Some(yr) = year_range { charts.push(HistogramBarChart::new(
-            stats.date_time,
-            HistogramBarChartFlavor::Year(yr),
-        )) };
+        if let Some(yr) = year_range {
+            charts.push(HistogramBarChart::new(
+                stats.date_time,
+                HistogramBarChartFlavor::Year(yr),
+            ))
+        };
         Self { charts }
     }
 
