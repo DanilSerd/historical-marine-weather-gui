@@ -24,7 +24,7 @@ use super::{
 pub struct WeatherSummaryCollectionScreensState {
     pub collection: WeatherSummaryCollection,
     new_summary_form: Option<NewWeatherSummaryForm>,
-    earth_map: EarthMap,
+    pub earth_map: EarthMap,
     wind_display: WindRose<BeaufortScaleBucketer>,
     summary_details: WeatherSummaryDetails,
     summary_list: WeatherList,

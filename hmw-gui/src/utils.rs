@@ -18,6 +18,8 @@ pub(crate) enum ControlBarIcon {
     NewSummary,
     ViewSummaries,
     ViewMain,
+    Light,
+    Dark,
 }
 
 /// Returns the emoji used for a control bar action.
@@ -31,6 +33,8 @@ pub(crate) const fn control_bar_icon(icon: ControlBarIcon) -> &'static str {
         ControlBarIcon::NewSummary => "➕",
         ControlBarIcon::ViewSummaries => "👁",
         ControlBarIcon::ViewMain => "👁",
+        ControlBarIcon::Light => "☀",
+        ControlBarIcon::Dark => "☾",
     }
 }
 

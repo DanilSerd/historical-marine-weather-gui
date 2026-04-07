@@ -1,11 +1,11 @@
 use iced::{
-    Element, Length,
-    widget::{column, container, row, rule},
+    Alignment, Element, Length,
+    widget::{column, container, row, rule, toggler},
 };
 
 use crate::{
     collection::WeatherSummaryCollection,
-    utils::{ControlBarIcon, control_bar_icon, tooltip_button},
+    utils::{ControlBarIcon, control_bar_icon, icon_widget, tooltip_button},
     weather_summary_collection::messages::ControlBarMessage as CollectionControlBarMessage,
 };
 
@@ -20,6 +20,7 @@ pub enum ControlBarMessage {
     SaveCollectionAs,
     CollectionControlBarMessage(CollectionControlBarMessage),
     OpenDataFileManager,
+    ToggleDarkMode(bool),
 }
 
 impl ControlBar {
@@ -28,6 +29,7 @@ impl ControlBar {
         collection_management_enabled: bool,
         collection: Option<&'s WeatherSummaryCollection>,
         collection_control_bar_extention: Option<Element<'s, CollectionControlBarMessage>>,
+        dark_mode: bool,
     ) -> Element<'s, ControlBarMessage> {
         let mut main_controls = row([
             tooltip_button(
@@ -49,7 +51,9 @@ impl ControlBar {
                 collection_management_enabled.then_some(ControlBarMessage::OpenCollection),
             ),
         ])
-        .spacing(5);
+        .spacing(5)
+        .align_y(Alignment::Center)
+        .width(Length::Fill);
 
         if let Some(collection) = collection {
             let (savable, savable_as) = collection.savable();
@@ -66,6 +70,24 @@ impl ControlBar {
                 savable_as.then_some(ControlBarMessage::SaveCollectionAs),
             ));
         }
+        main_controls = main_controls.push(
+            container(
+                row([
+                    match dark_mode {
+                        true => icon_widget(control_bar_icon(ControlBarIcon::Dark)).into(),
+                        false => icon_widget(control_bar_icon(ControlBarIcon::Light)).into(),
+                    },
+                    toggler(dark_mode)
+                        .on_toggle(ControlBarMessage::ToggleDarkMode)
+                        .into(),
+                ])
+                .spacing(8)
+                .align_y(Alignment::Center),
+            )
+            .padding([2, 8])
+            .width(Length::Fill)
+            .align_right(Length::Fill),
+        );
 
         let bar = match collection_control_bar_extention {
             Some(extention) => column([

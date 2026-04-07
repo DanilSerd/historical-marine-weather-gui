@@ -107,7 +107,7 @@ impl LatticeCellVertex {
     fn higlight_cell(position: glam::Vec3) -> Self {
         Self {
             position,
-            color_intensity: 0.3,
+            color_intensity: 0.4,
         }
     }
 

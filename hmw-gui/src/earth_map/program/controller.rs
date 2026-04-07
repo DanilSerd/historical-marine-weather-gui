@@ -37,6 +37,10 @@ impl EarthMapProgram {
         let p = left_handed_unit_spheroid_point_to_geo(from_spheroid_point);
         self.lattice.containing(p).map(|(e, i)| (*e, *i))
     }
+
+    pub fn set_colors(&mut self, colors: EarthMapColors) {
+        self.colors = colors;
+    }
 }
 
 impl iced::widget::shader::Program<EarthMapProgramMessage> for EarthMapProgram {

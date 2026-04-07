@@ -5,9 +5,10 @@ use iced::widget::{Space, container, row, text};
 use iced::{Alignment, Element, Font, Length, Task, font::Weight};
 use rfd::FileHandle;
 
+use crate::app::persistant_state::AppPersistentConfig;
 use crate::collection::{SavingStatus, WeatherSummaryCollection};
 use crate::controll_bar::{ControlBar, ControlBarMessage};
-use crate::earth_map::EarthMap;
+use crate::earth_map::{EarthMap, EarthMapColors};
 use crate::loader::Loader;
 use crate::weather_summary_collection::{
     WeatherSummaryCollectionMessage, WeatherSummaryCollectionScreensState,
@@ -32,15 +33,6 @@ pub enum MainWindowMessage {
     CollectionMessage(WeatherSummaryCollectionMessage),
     ControlBarMessage(ControlBarMessage),
     None,
-}
-
-impl MainWindowMessage {
-    pub fn is_open_data_file_manager(&self) -> bool {
-        matches!(
-            self,
-            MainWindowMessage::ControlBarMessage(ControlBarMessage::OpenDataFileManager)
-        )
-    }
 }
 
 impl MainWindowState {
@@ -197,6 +189,19 @@ impl MainWindowState {
                         .map(MainWindowMessage::CollectionMessage)
                     })
                     .unwrap_or(Task::none()),
+                ControlBarMessage::ToggleDarkMode(dark_mode) => {
+                    let earth = self
+                        .earth_map
+                        .as_mut()
+                        .or(self.collection_state.as_mut().map(|c| &mut c.earth_map));
+                    if let Some(earth) = earth {
+                        match dark_mode {
+                            true => earth.set_colors(EarthMapColors::dark()),
+                            false => earth.set_colors(EarthMapColors::light()),
+                        }
+                    }
+                    Task::none()
+                }
                 _ => Task::none(),
             },
         }
@@ -237,7 +242,7 @@ impl MainWindowState {
         }
     }
 
-    pub fn view(&self) -> Element<'_, MainWindowMessage> {
+    pub fn view(&self, config: Option<&AppPersistentConfig>) -> Element<'_, MainWindowMessage> {
         let (collection_state_view, collection, collection_view_bar_extention) =
             match &self.collection_state {
                 Some(collection_state) => (
@@ -261,6 +266,7 @@ impl MainWindowState {
                 self.loader.is_some(),
                 collection,
                 collection_view_bar_extention,
+                config.and_then(|c| c.dark_mode).unwrap_or_default(),
             )
             .map(MainWindowMessage::ControlBarMessage);
         let main_content = iced::widget::column([

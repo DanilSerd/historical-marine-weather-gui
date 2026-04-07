@@ -14,6 +14,7 @@ pub struct AppPersistentStateManager {
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct AppPersistentConfig {
     pub data_dir: Option<PathBuf>,
+    pub dark_mode: Option<bool>,
 }
 
 #[derive(Error, Debug)]
@@ -54,8 +55,21 @@ impl AppPersistentStateManager {
         &self.config
     }
 
+    pub fn is_dark_mode(&self) -> bool {
+        match self.config.dark_mode {
+            Some(true) => true,
+            Some(false) | None => false,
+        }
+    }
+
     pub fn update_data_dir(&mut self, data_dir: PathBuf) -> Result<(), PersistentStateError> {
         self.config.data_dir = Some(data_dir);
+        self.tx.send(self.config.clone())?;
+        Ok(())
+    }
+
+    pub fn update_dark_mode(&mut self, dark_mode: bool) -> Result<(), PersistentStateError> {
+        self.config.dark_mode = Some(dark_mode);
         self.tx.send(self.config.clone())?;
         Ok(())
     }

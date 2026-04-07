@@ -16,8 +16,9 @@ use crate::{
         persistant_state::AppPersistentStateManager,
     },
     assets::Assets,
+    controll_bar::ControlBarMessage,
     data_file_manager::{DataFileManager, Message as DataFileManagerMessage},
-    earth_map::EarthMap,
+    earth_map::{EarthMap, EarthMapColors},
     loader::Loader,
 };
 
@@ -72,31 +73,42 @@ fn update(state: &mut AppState, message: AppMessage) -> Task<AppMessage> {
             Task::done(AppMessage::WindowClosed(state.windows.which_window(id)))
         }
         AppMessage::MainWindowMessage(main_window_message) => {
-            if main_window_message.is_open_data_file_manager() {
-                match state.windows.get_data_file_manager_window() {
-                    w @ Window::DataFileManager(_) => w.focus(),
-                    Window::None => {
-                        let (task, _id) = Window::open_data_file_manager_window();
-                        state.data_file_manager_window = Some(DataFileManager::new(
-                            state
-                                .persistent_state
-                                .as_ref()
-                                .and_then(|p| p.config().data_dir.clone()),
-                        ));
-                        task
+            let task = match &main_window_message {
+                MainWindowMessage::ControlBarMessage(ControlBarMessage::OpenDataFileManager) => {
+                    match state.windows.get_data_file_manager_window() {
+                        w @ Window::DataFileManager(_) => w.focus(),
+                        Window::None => {
+                            let (task, _id) = Window::open_data_file_manager_window();
+                            state.data_file_manager_window = Some(DataFileManager::new(
+                                state
+                                    .persistent_state
+                                    .as_ref()
+                                    .and_then(|p| p.config().data_dir.clone()),
+                            ));
+                            task
+                        }
+                        _ => Task::none(),
                     }
-                    _ => Task::none(),
                 }
-            } else {
-                state
-                    .main_window
-                    .as_mut()
-                    .map(|m| {
-                        m.update(main_window_message)
-                            .map(AppMessage::MainWindowMessage)
-                    })
-                    .unwrap_or(Task::none())
-            }
+                MainWindowMessage::ControlBarMessage(ControlBarMessage::ToggleDarkMode(mode)) => {
+                    let _ = state
+                        .persistent_state
+                        .as_mut()
+                        .map(|s| s.update_dark_mode(*mode));
+                    Task::none()
+                }
+                _ => Task::none(),
+            };
+            let main_window_task = state
+                .main_window
+                .as_mut()
+                .map(|m| {
+                    m.update(main_window_message)
+                        .map(AppMessage::MainWindowMessage)
+                })
+                .unwrap_or(Task::none());
+
+            task.chain(main_window_task)
         }
         AppMessage::DataFileManagerMessage(message) => {
             let refresh_task = if let Some(path) = message.applied_parquet_dir() {
@@ -162,7 +174,10 @@ fn view_main_window(state: &AppState) -> Element<'_, AppMessage> {
     state
         .main_window
         .as_ref()
-        .map(|m| m.view().map(AppMessage::MainWindowMessage))
+        .map(|m| {
+            m.view(state.persistent_state.as_ref().map(|s| s.config()))
+                .map(AppMessage::MainWindowMessage)
+        })
         .unwrap_or(text("Main...").into())
 }
 
@@ -202,11 +217,11 @@ fn startup() -> Task<AppMessage> {
             Err(e) => return Task::done(AppMessage::Error(e.to_string())),
         };
         let lattice = Arc::new(lattice);
-        let earth_map = match EarthMap::new(
-            Default::default(),
-            lattice.clone(),
-            Assets::earth_map_texture(),
-        ) {
+        let colors = match persistent_state.is_dark_mode() {
+            true => EarthMapColors::dark(),
+            false => EarthMapColors::light(),
+        };
+        let earth_map = match EarthMap::new(colors, lattice.clone(), Assets::earth_map_texture()) {
             Ok(earth_map) => earth_map,
             Err(e) => return Task::done(AppMessage::Error(e.to_string())),
         };
@@ -397,10 +412,18 @@ fn boot() -> (AppState, Task<AppMessage>) {
     )
 }
 
+fn theme(state: &AppState, _: window::Id) -> iced::Theme {
+    match &state.persistent_state {
+        Some(s) if s.is_dark_mode() => iced::Theme::Dark,
+        Some(_) | None => iced::Theme::Light,
+    }
+}
+
 pub fn run() {
     let mut app = iced::daemon(boot, update, view)
         .antialiasing(true)
         .title(title)
+        .theme(theme)
         .subscription(subscription);
     for font in Assets::fonts() {
         app = app.font(font);

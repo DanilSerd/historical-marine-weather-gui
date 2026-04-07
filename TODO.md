@@ -6,14 +6,15 @@
 - [ ] Fix summary collection save file. Make sure it has a .json appended if not added by the user. (This seem to only effect linux build)
 - [ ] When closing the window confirm unsaved changes with a dialogue.
 - [ ] When all files failed make sure nothing is written or committed.
-- [ ] Add Themes.
 - [ ] rfd windows parent should be set to the appropriate windows.
 - [ ] Add a confirmation for cancel. And for when closing the data manager.
 - [ ] Add dataset statistics to pick directory view. Maybe also add the number of duplicates based on uid.
 - [ ] Add total file sizes for all the sources in import view.
 - [ ] Add a reset to 0/0 button to globe.
 - [ ] Add overall geo area of the selection to the stats.
-- [ ] Fix the year display in new summary and collection stats to show only one year if only 1 year is selected.
+- [ ] Fix the year display in new summary and collection stats to show only one year if only 1 year is selected. Also improve it's appearance should be just on the same line as the picker. The picker should be all the same color (the theme primary)
 - [ ] Add version to GUI
 - [ ] The speed of records processed should be a moving average.
 - [ ] Solve the memory issues on import. Need some way to control how many records to keep in memory before writing out (the current static setting is not enough it should dynamically fluctuate based on available memory)
+- [ ] Move the directory selection to a separate config section.
+- [ ] Create one summary per month for the same selection/name.

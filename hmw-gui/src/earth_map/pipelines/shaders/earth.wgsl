@@ -1,5 +1,6 @@
 struct Uniforms {
     mvp: mat4x4<f32>,
+    dark_mode: u32,
 }
 
 
@@ -44,15 +45,29 @@ var r_sampler: sampler;
 @fragment
 fn fs_main(in: VSOutput) -> @location(0) vec4<f32> {
     let normal = normalize(in.model_normal);
-    let fc = fresnel(4., normalize(in.world_normal));
     let sample = textureSample(r_texture, r_sampler, normal);
-    return sample + fc;
+    let base = sample.rgb;
+    let world_normal = normalize(in.world_normal);
+    let fc = fresnel(4.0, world_normal);
+
+    if uniforms.dark_mode != 0u {
+        let rgb = clamp(
+            base * 0.5 - fc,
+            vec3f(0.0),
+            vec3f(1.0),
+        );
+
+        return vec4f(rgb, sample.a);
+    }
+
+    let rgb = clamp(base + fc, vec3f(0.0), vec3f(1.0));
+
+    return vec4f(rgb, sample.a);
 }
+
 
 fn fresnel(amount: f32, normal: vec3f) -> f32 {
     let d = clamp(dot(normal, vec3f(0., 0., -1.)), 0.0, 1.0);
-	return pow(
-		1.0 - d,
-		amount
-	);
+
+    return pow(1.0 - d, amount);
 }

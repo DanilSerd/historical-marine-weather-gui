@@ -18,7 +18,7 @@ pub struct RoseSector {
 
 impl RoseSector {
     pub fn new(
-        color: glam::Vec4,
+        color: iced::Color,
         inner: f32,
         outer: f32,
         sweep_start_angle: f32,
@@ -42,7 +42,7 @@ impl RoseSector {
             .ok_or("sweep start must be less than end")?;
 
         Ok(Self {
-            color,
+            color: color.into_linear().into(),
             inner,
             outer,
             sweep_start_angle,

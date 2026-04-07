@@ -1,12 +1,12 @@
 use std::ops::RangeInclusive;
 
 use iced::{
-    Color, Element, Length,
+    Element, Length,
     widget::{column, row, rule, text},
 };
 
 use crate::loader::LoaderStats;
-use crate::widgets::{DoubleEndedSliderStyle, double_ended_slider};
+use crate::widgets::double_ended_slider;
 
 #[derive(Debug, Clone)]
 pub struct EpochSelector {
@@ -60,11 +60,7 @@ impl EpochSelector {
                 EpochSelectorMessage(hmw_data::Epoch::Range(start..=end))
             },
         )
-        .width(Length::Fill)
-        .style(DoubleEndedSliderStyle::new(
-            Color::from_rgb8(0x2f, 0x6f, 0x97),
-            Color::from_rgb8(0xd3, 0x86, 0x3b),
-        ));
+        .width(Length::Fill);
 
         let selectors: Element<'_, _> = selectors.into();
         let range_text = self.epoch.as_ref().unwrap().to_string();

@@ -68,6 +68,10 @@ impl EarthMap {
         }
     }
 
+    pub fn set_colors(&mut self, colors: EarthMapColors) {
+        self.program.set_colors(colors);
+    }
+
     /// Sets highlighted and selected lattice nodes.
     pub fn set_highlight_and_select<'a>(
         &'a mut self,

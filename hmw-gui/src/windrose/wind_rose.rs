@@ -138,7 +138,7 @@ where
         let key: Element<'_, _> = column(self.color_map.iter_ordered().map(|(s, c)| {
             let (key_color, font) = if buckets_limited.contains(s) {
                 (
-                    Color::from_linear_rgba(c.x, c.y, c.z, c.w),
+                    Some(*c),
                     Font {
                         weight: iced::font::Weight::Bold,
                         ..Default::default()
@@ -146,7 +146,7 @@ where
                 )
             } else {
                 (
-                    Color::from_linear_rgba(0.5, 0.5, 0.5, 1.0),
+                    None,
                     Font {
                         weight: iced::font::Weight::Thin,
                         ..Default::default()
@@ -155,8 +155,13 @@ where
             };
             let key_color_container: Element<'_, _> =
                 container(Space::new().width(Length::Fill).height(Length::Fill))
-                    .style(move |_: &Theme| {
-                        iced::widget::container::background(Background::Color(key_color))
+                    .style(move |t: &Theme| {
+                        let pallet = t.extended_palette();
+                        let c = match key_color {
+                            Some(c) => c,
+                            None => pallet.background.weakest.color,
+                        };
+                        iced::widget::container::background(Background::Color(c))
                     })
                     .width(Length::FillPortion(2))
                     .height(Length::Fill)
@@ -322,10 +327,7 @@ where
         )
         .width(Length::Fill)
         .step(1.0)
-        .style(DoubleEndedSliderStyle::new(
-            Color::from_linear_rgba(lower_color.x, lower_color.y, lower_color.z, lower_color.w),
-            Color::from_linear_rgba(upper_color.x, upper_color.y, upper_color.z, upper_color.w),
-        ))
+        .style(DoubleEndedSliderStyle::new(*lower_color, *upper_color))
         .into();
 
         column([
@@ -507,8 +509,8 @@ where
 
 #[derive(Debug, Clone)]
 pub enum WindRoseColorStrategy {
-    /// (start lerp colour, middle lerp colour, end lerp colour)
-    Lerp(glam::Vec4, glam::Vec4, glam::Vec4),
+    /// Colourus gradient
+    Scheme(colorous::Gradient),
 }
 
 impl WindRoseColorStrategy {
@@ -516,24 +518,17 @@ impl WindRoseColorStrategy {
     where
         B: Eq + std::hash::Hash + Copy,
     {
+        let all_buckets = buckets.into_iter().collect::<Vec<_>>();
         let map = match self {
-            WindRoseColorStrategy::Lerp(start, middle, end) => {
-                let all_buckets = buckets.into_iter().collect::<Vec<_>>();
-
-                all_buckets
-                    .iter()
-                    .enumerate()
-                    .map(|(i, buck)| {
-                        let t = i as f32 / (all_buckets.len() - 1) as f32;
-                        let color = if t <= 0.5 {
-                            start.lerp(*middle, t * 2.0)
-                        } else {
-                            middle.lerp(*end, (t - 0.5) * 2.0)
-                        };
-                        (*buck, color)
-                    })
-                    .collect::<HashMap<_, _>>()
-            }
+            WindRoseColorStrategy::Scheme(gradient) => all_buckets
+                .iter()
+                .enumerate()
+                .map(|(i, buck)| {
+                    let c = gradient.eval_rational(i, all_buckets.len());
+                    let c = Color::from_rgb8(c.r, c.g, c.b);
+                    (*buck, c)
+                })
+                .collect(),
         };
         ColorMap(map)
     }
@@ -541,28 +536,29 @@ impl WindRoseColorStrategy {
 
 impl Default for WindRoseColorStrategy {
     fn default() -> Self {
-        Self::Lerp(
-            glam::Vec4::new(0., 0., 1., 1.),
-            glam::Vec4::new(0.2, 1., 0., 1.),
-            glam::Vec4::new(1., 0., 0., 1.),
-        )
+        Self::Scheme(colorous::VIRIDIS)
+        // Self::Lerp(
+        //     glam::Vec4::new(0., 0., 1., 1.),
+        //     glam::Vec4::new(0.2, 1., 0., 1.),
+        //     glam::Vec4::new(1., 0., 0., 1.),
+        // )
     }
 }
 
 #[derive(Debug, Clone)]
-struct ColorMap<K>(HashMap<K, glam::Vec4>);
+struct ColorMap<K>(HashMap<K, Color>);
 
 impl<K> ColorMap<K>
 where
     K: Ord + std::hash::Hash,
 {
-    pub fn iter_ordered(&self) -> impl Iterator<Item = (&K, &glam::Vec4)> {
+    pub fn iter_ordered(&self) -> impl Iterator<Item = (&K, &Color)> {
         let mut keys = self.0.keys().collect::<Vec<_>>();
         keys.sort();
         keys.into_iter().map(move |k| (k, self.0.get(k).unwrap()))
     }
 
-    pub fn get_color(&self, key: &K) -> Option<glam::Vec4> {
+    pub fn get_color(&self, key: &K) -> Option<Color> {
         self.0.get(key).copied()
     }
 }

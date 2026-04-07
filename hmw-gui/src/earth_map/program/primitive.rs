@@ -94,7 +94,14 @@ impl shader::Primitive for EarthMapPrimitive {
 
         let vp = projection * view;
         map_pipeline.prepare_depth_texture(device, depth_texture_size);
-        map_pipeline.update_uniforms(queue, &EarthMapUniforms { mvp: vp });
+        map_pipeline.update_uniforms(
+            queue,
+            &EarthMapUniforms {
+                mvp: vp,
+                dark_mode: self.colors.dark_mode as u32,
+                ..Default::default()
+            },
+        );
 
         let lattice_pipeline = pipeline
             .lattice

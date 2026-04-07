@@ -5,8 +5,10 @@
 <p><strong>A GUI for exploring historical marine weather data.</strong></p>
 
 <div align="center">
-  <img src="resources/screens/main.png" alt="Main view" width="49%" />
-  <img src="resources/screens/wind.png" alt="Wind view" width="49%" />
+  <img src="resources/screens/main.png" alt="Main view" width="45%" />
+  <img src="resources/screens/wind_dark.png" alt="Main view" width="45%" />
+  <img src="resources/screens/stats.png" alt="Wind view" width="45%" />
+  <img src="resources/screens/wind_light.png" alt="Wind view" width="45%" />
 </div>
 
 

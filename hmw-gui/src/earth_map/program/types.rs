@@ -3,12 +3,27 @@ use hmw_geo::{Lattice, LatticeEntry, geo::Point};
 #[derive(Debug, Clone, Copy)]
 pub struct EarthMapColors {
     pub lattice_highlight: glam::Vec4,
+    pub dark_mode: bool,
 }
 
 impl Default for EarthMapColors {
     fn default() -> Self {
+        Self::light()
+    }
+}
+
+impl EarthMapColors {
+    pub fn light() -> Self {
         Self {
-            lattice_highlight: glam::Vec4::new(0.5, 0., 0., 0.6),
+            lattice_highlight: glam::Vec4::new(0.00, 0.62, 0.82, 0.80),
+            dark_mode: false,
+        }
+    }
+
+    pub fn dark() -> Self {
+        Self {
+            lattice_highlight: glam::Vec4::new(0.02, 0.40, 0.54, 0.85),
+            dark_mode: true,
         }
     }
 }

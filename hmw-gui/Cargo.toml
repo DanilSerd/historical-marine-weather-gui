@@ -19,6 +19,7 @@ hmw-data = { path = "../hmw-data" }
 hmw-geo = { path = "../hmw-geo" }
 imma-files = { path = "../imma-files" }
 chrono = { workspace = true }
+colorous = { workspace = true }
 iced_aksel = { workspace = true }
 uuid = { workspace = true }
 serde = { workspace = true }

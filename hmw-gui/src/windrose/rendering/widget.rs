@@ -10,12 +10,12 @@ use iced::advanced::{
     widget::tree,
 };
 use iced::{
-    Color, Element, Font, Padding, Point, Renderer, Theme, Vector,
+    Element, Font, Padding, Point, Renderer, Theme, Vector,
     widget::{Shader, Text, container, text},
 };
 use iced::{Length, Rectangle, Size};
 
-use super::{RoseSector, WindRoseProgram, program::DEFAULT_GRIDLINE_COLOR};
+use super::{RoseSector, WindRoseProgram};
 
 const LABEL_TEXT_SIZE: f32 = 14.0;
 
@@ -50,22 +50,19 @@ impl WindRoseWidget {
                 } else {
                     format!("{:.1}%", label_percentage)
                 };
-                Text::new(label)
-                    .size(LABEL_TEXT_SIZE)
-                    .color(Color::from_rgba(
-                        DEFAULT_GRIDLINE_COLOR.x,
-                        DEFAULT_GRIDLINE_COLOR.y,
-                        DEFAULT_GRIDLINE_COLOR.z,
-                        1.,
-                    ))
-                    .font(Font {
-                        weight: iced::font::Weight::Bold,
-                        ..Default::default()
-                    })
-                    .height(Length::Fill)
-                    .width(Length::Fill)
-                    .center()
-                    .into()
+                container(
+                    Text::new(label)
+                        .font(Font {
+                            weight: iced::font::Weight::Bold,
+                            ..Default::default()
+                        })
+                        .size(LABEL_TEXT_SIZE),
+                )
+                .style(container::bordered_box)
+                .height(Length::Shrink)
+                .width(Length::Shrink)
+                .padding(5)
+                .into()
             })
             .collect();
         Self {
@@ -110,7 +107,7 @@ impl WindRoseWidget {
 
     fn tooltip(&self, hovered_segment: Option<u32>) -> Element<'static, (), Theme, Renderer> {
         container(text(self.tooltip_text(hovered_segment).to_string()))
-            .padding(6)
+            .padding(5)
             .style(container::bordered_box)
             .into()
     }
@@ -157,16 +154,12 @@ impl Widget<(), Theme, Renderer> for WindRoseWidget {
 
     fn layout(
         &mut self,
-        tree: &mut Tree,
-        renderer: &Renderer,
+        _tree: &mut Tree,
+        _renderer: &Renderer,
         limits: &iced::advanced::layout::Limits,
     ) -> Node {
-        let limits_shrunk = limits.shrink(Padding::new(LABEL_TEXT_SIZE));
-        let shader_size = if limits_shrunk.max().width > limits_shrunk.max().height {
-            limits_shrunk.max().height
-        } else {
-            limits_shrunk.max().width
-        };
+        let limits_shrunk = limits.shrink(Padding::new(LABEL_TEXT_SIZE + 5.));
+        let shader_size = limits_shrunk.max().width.min(limits_shrunk.max().height);
 
         let mut shader_node = Node::new(Size::new(shader_size, shader_size));
         shader_node.align_mut(
@@ -175,28 +168,7 @@ impl Widget<(), Theme, Renderer> for WindRoseWidget {
             limits.max(),
         );
 
-        let label_count = self.gridline_labels.len() as f32;
-        let children_iter = self
-            .gridline_labels
-            .iter_mut()
-            .enumerate()
-            .map(|(i, label)| {
-                let i = i + 1;
-                let label_node =
-                    label
-                        .as_widget_mut()
-                        .layout(&mut tree.children[i], renderer, limits);
-
-                let mut y_translation = shader_node.size().height * 0.5 / label_count * i as f32;
-                if self.apply_scaling_factor_to_gridlines {
-                    y_translation *= self.scaling_factor;
-                }
-                label_node.translate(Vector::new(0., y_translation))
-            });
-        let mut children = vec![shader_node.clone()];
-        children.extend(children_iter);
-
-        Node::with_children(limits.max(), children)
+        Node::with_children(limits.max(), vec![shader_node])
     }
 
     fn draw(
@@ -211,12 +183,15 @@ impl Widget<(), Theme, Renderer> for WindRoseWidget {
     ) {
         let hovered_segment = tree.state.downcast_ref::<State>().hovered_segment;
         let shader = self.shader(hovered_segment);
-        let iter = std::iter::once(&shader).chain(self.gridline_labels.iter());
-        let iter = iter.zip(tree.children.iter()).zip(layout.children());
-        for ((e, t), l) in iter {
-            e.as_widget()
-                .draw(t, renderer, theme, style, l, cursor, viewport);
-        }
+        shader.as_widget().draw(
+            tree.children.first().expect("shader tree exists"),
+            renderer,
+            theme,
+            style,
+            layout.children().next().expect("shader layout exists"),
+            cursor,
+            viewport,
+        );
     }
 
     fn children(&self) -> Vec<Tree> {
@@ -261,20 +236,44 @@ impl Widget<(), Theme, Renderer> for WindRoseWidget {
     fn overlay<'a>(
         &'a mut self,
         tree: &'a mut Tree,
-        _layout: Layout<'a>,
+        layout: Layout<'a>,
         _renderer: &Renderer,
         _viewport: &Rectangle,
-        _translation: Vector,
+        translation: Vector,
     ) -> Option<overlay::Element<'a, (), Theme, Renderer>> {
-        let state = tree.state.downcast_ref::<State>();
-        let hovered_segment = state.hovered_segment?;
-        let cursor_position = state.cursor_position?;
-
-        Some(overlay::Element::new(Box::new(TooltipOverlay {
-            tooltip: self.tooltip(Some(hovered_segment)),
-            tree: tree.children.last_mut().expect("tooltip tree exists"),
+        let State {
+            hovered_segment,
             cursor_position,
-        })))
+        } = *tree.state.downcast_ref::<State>();
+        let tooltip = hovered_segment.map(|hovered_segment| self.tooltip(Some(hovered_segment)));
+
+        let mut shader_bounds = layout
+            .children()
+            .next()
+            .expect("shader layout exists")
+            .bounds();
+        shader_bounds.x += translation.x;
+        shader_bounds.y += translation.y;
+        let (_, overlay_children) = tree.children.split_first_mut().expect("shader tree exists");
+        let (label_trees, tooltip_tree) = overlay_children.split_at_mut(self.gridline_labels.len());
+
+        let mut children = vec![overlay::Element::new(Box::new(GridlineLabelsOverlay {
+            labels: &mut self.gridline_labels,
+            trees: label_trees,
+            shader_bounds,
+            scaling_factor: self.scaling_factor,
+            apply_scaling_factor_to_gridlines: self.apply_scaling_factor_to_gridlines,
+        }))];
+
+        if let (Some(tooltip), Some(cursor_position)) = (tooltip, cursor_position) {
+            children.push(overlay::Element::new(Box::new(TooltipOverlay {
+                tooltip,
+                tree: tooltip_tree.first_mut().expect("tooltip tree exists"),
+                cursor_position,
+            })));
+        }
+
+        Some(overlay::Group::with_children(children).into())
     }
 
     fn diff(&self, tree: &mut Tree) {
@@ -298,6 +297,76 @@ struct TooltipOverlay<'a> {
     tooltip: Element<'static, (), Theme, Renderer>,
     tree: &'a mut Tree,
     cursor_position: Point,
+}
+
+struct GridlineLabelsOverlay<'a> {
+    labels: &'a mut [Element<'static, (), Theme, Renderer>],
+    trees: &'a mut [Tree],
+    shader_bounds: Rectangle,
+    scaling_factor: f32,
+    apply_scaling_factor_to_gridlines: bool,
+}
+
+impl overlay::Overlay<(), Theme, Renderer> for GridlineLabelsOverlay<'_> {
+    fn layout(&mut self, renderer: &Renderer, bounds: Size) -> Node {
+        let label_count = self.labels.len() as f32;
+        let label_nodes = self
+            .labels
+            .iter_mut()
+            .zip(self.trees.iter_mut())
+            .enumerate()
+            .map(|(i, (label, tree))| {
+                let i = i + 1;
+                let label_node = label.as_widget_mut().layout(
+                    tree,
+                    renderer,
+                    &layout::Limits::new(Size::ZERO, bounds),
+                );
+                let label_size = label_node.size();
+                let mut y_translation = self.shader_bounds.height * 0.5 / label_count * i as f32;
+                if self.apply_scaling_factor_to_gridlines {
+                    y_translation *= self.scaling_factor;
+                }
+
+                label_node.move_to(Point::new(
+                    self.shader_bounds.center_x() - label_size.width * 0.5,
+                    self.shader_bounds.center_y() + y_translation - label_size.height * 0.5,
+                ))
+            })
+            .collect();
+
+        Node::with_children(bounds, label_nodes)
+    }
+
+    fn draw(
+        &self,
+        renderer: &mut Renderer,
+        theme: &Theme,
+        style: &Style,
+        layout: Layout<'_>,
+        cursor: Cursor,
+    ) {
+        for ((label, tree), layout) in self
+            .labels
+            .iter()
+            .zip(self.trees.iter())
+            .zip(layout.children())
+        {
+            label.as_widget().draw(
+                tree,
+                renderer,
+                theme,
+                style,
+                layout,
+                cursor,
+                &Rectangle::with_size(Size::INFINITE),
+            );
+        }
+    }
+
+    fn index(&self) -> f32 {
+        1.0
+    }
 }
 
 impl overlay::Overlay<(), Theme, Renderer> for TooltipOverlay<'_> {
@@ -340,6 +409,10 @@ impl overlay::Overlay<(), Theme, Renderer> for TooltipOverlay<'_> {
             cursor,
             &Rectangle::with_size(Size::INFINITE),
         );
+    }
+
+    fn index(&self) -> f32 {
+        2.0
     }
 }
 

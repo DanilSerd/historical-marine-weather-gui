@@ -120,7 +120,7 @@ where
     step: T,
     width: Length,
     height: f32,
-    style: DoubleEndedSliderStyle,
+    style: Option<DoubleEndedSliderStyle>,
     marker: PhantomData<Message>,
 }
 
@@ -137,7 +137,7 @@ where
             step: T::one(),
             width: Length::Fill,
             height: DEFAULT_HEIGHT,
-            style: DoubleEndedSliderStyle::new(Color::BLACK, Color::BLACK),
+            style: None,
             marker: PhantomData,
         }
     }
@@ -156,7 +156,7 @@ where
 
     /// Sets the style of the slider.
     pub fn style(mut self, style: DoubleEndedSliderStyle) -> Self {
-        self.style = style;
+        self.style = Some(style);
         self
     }
 
@@ -324,6 +324,14 @@ where
         let start_center =
             handle_center(bounds, *self.selection.start(), &self.range, handle_radius);
         let end_center = handle_center(bounds, *self.selection.end(), &self.range, handle_radius);
+        let default_handle_color = match default_style.handle.background {
+            Background::Color(color) => color,
+            Background::Gradient(_) => Color::BLACK,
+        };
+        let double_ended_style = self.style.unwrap_or(DoubleEndedSliderStyle {
+            start_handle_color: default_handle_color,
+            end_handle_color: default_handle_color,
+        });
 
         renderer.fill_quad(
             renderer::Quad {
@@ -351,8 +359,8 @@ where
                 },
                 Background::from(
                     gradient::Linear::new(Radians::PI / 2.0)
-                        .add_stop(0.0, self.style.start_handle_color)
-                        .add_stop(1.0, self.style.end_handle_color),
+                        .add_stop(0.0, double_ended_style.start_handle_color)
+                        .add_stop(1.0, double_ended_style.end_handle_color),
                 ),
             );
         }
@@ -365,8 +373,8 @@ where
 
         if selection_is_merged(&self.selection) {
             let merged_color = match state.merged_handle {
-                ActiveHandle::Start => self.style.start_handle_color,
-                ActiveHandle::End => self.style.end_handle_color,
+                ActiveHandle::Start => double_ended_style.start_handle_color,
+                ActiveHandle::End => double_ended_style.end_handle_color,
             };
 
             draw_handle(
@@ -382,14 +390,14 @@ where
                 start_center,
                 handle_radius,
                 handle_border,
-                self.style.start_handle_color,
+                double_ended_style.start_handle_color,
             );
             draw_handle(
                 renderer,
                 end_center,
                 handle_radius,
                 handle_border,
-                self.style.end_handle_color,
+                double_ended_style.end_handle_color,
             );
         }
     }

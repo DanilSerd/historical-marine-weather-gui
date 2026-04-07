@@ -21,10 +21,10 @@ fn vs_main(
 ) -> VSOutput {
     var vs_out: VSOutput;
     vs_out.position = uniforms.vp * vec4f(vertex.position, 1.0);
-    vs_out.color = vec4f(uniforms.highlight_color.xyz, uniforms.highlight_color.w * vertex.color_intensity);
+    let alpha = uniforms.highlight_color.w * vertex.color_intensity;
+    vs_out.color = vec4f(uniforms.highlight_color.xyz * alpha, alpha);
 
     return vs_out;
-
 }
 
 @fragment
