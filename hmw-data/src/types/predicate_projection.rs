@@ -99,7 +99,13 @@ impl Epoch {
 impl Display for Epoch {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Epoch::Range(range) => write!(f, "{} -> {} (inclusive)", range.start(), range.end()),
+            Epoch::Range(range) => {
+                if range.start() == range.end() {
+                    write!(f, "{}", range.start())
+                } else {
+                    write!(f, "{} - {}", range.start(), range.end())
+                }
+            }
             Epoch::Unknown => write!(f, "Unknown"),
         }
     }

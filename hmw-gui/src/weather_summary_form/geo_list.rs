@@ -1,6 +1,11 @@
 use hmw_geo::LatticeEntry;
-use iced::{Element, widget::text};
+use iced::{
+    Element,
+    widget::{row, text},
+};
 use std::collections::HashSet;
+
+use crate::utils::icon_widget;
 
 #[derive(Debug, Clone)]
 pub struct LatticeNodesSelectedList {
@@ -42,19 +47,27 @@ impl LatticeNodesSelectedList {
     }
 
     pub fn view(&self) -> Element<'_, ()> {
-        if self.nodes.is_empty() {
+        let text = if self.nodes.is_empty() {
             text("Select cells on globe").into()
         } else {
             let area_km2 = (self.area / 1e6).round() as usize;
             let mut formatter = human_format::Formatter::new();
             formatter.with_units(" km²");
+            let c = if self.nodes.len() > 1 {
+                "cells"
+            } else {
+                "cell"
+            };
             text(format!(
-                "{} cells, {}",
+                "{} {} - {}",
                 self.nodes.len(),
+                c,
                 formatter.format(area_km2 as f64),
             ))
             .into()
-        }
+        };
+        let icon = icon_widget("🌍");
+        row([icon.into(), text]).spacing(5).into()
     }
 
     pub fn is_empty(&self) -> bool {

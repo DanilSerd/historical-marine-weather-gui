@@ -2,7 +2,7 @@ use std::ops::RangeInclusive;
 
 use iced::{
     Element, Length,
-    widget::{column, row, rule, text},
+    widget::{column, container, rule, text},
 };
 
 use crate::loader::LoaderStats;
@@ -66,8 +66,8 @@ impl EpochSelector {
         let range_text = self.epoch.as_ref().unwrap().to_string();
 
         column([
-            row([text("Year:").into(), selectors]).spacing(8).into(),
-            text(range_text).into(),
+            selectors,
+            container(text(range_text)).center_x(Length::Fill).into(),
             rule::horizontal(1).into(),
         ])
         .spacing(6)

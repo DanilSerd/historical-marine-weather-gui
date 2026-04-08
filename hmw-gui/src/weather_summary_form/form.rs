@@ -1,5 +1,6 @@
 use hmw_geo::LatticeEntry;
-use iced::{Element, Length, Task, widget::container};
+use iced::widget::container;
+use iced::{Element, Length, Task};
 
 use crate::{
     collection::WeatherSummaryCollection,
@@ -195,6 +196,7 @@ impl NewWeatherSummaryForm {
             )
             .width(Length::FillPortion(1))
             .height(Length::Shrink)
+            .center_x(Length::Fill)
             .into(),
         ])
         .spacing(5)

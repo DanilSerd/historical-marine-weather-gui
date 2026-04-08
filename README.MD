@@ -64,7 +64,7 @@ Helpful links:
   - [ ] Graphs for single-variable summaries
   - [ ] Alternative to geohash gridding for the globe
   - [ ] Observation geo density display
-  - [ ] Themes
+  - [x] Themes
   - [ ] More tests
 
 - ICOADS data
