@@ -214,7 +214,7 @@ fn read_source_file(
             let mut processed_records = 0;
             read_records(reader, &mut processed_records)?;
         }
-        FileSource::Remote(url) => {
+        FileSource::Remote((url, _)) => {
             let mut processed_records = 0;
             let mut backoff = Duration::from_secs(1);
             loop {

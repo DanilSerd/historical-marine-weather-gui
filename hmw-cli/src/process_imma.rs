@@ -81,7 +81,7 @@ pub async fn process_imma(
 
             files
                 .into_iter()
-                .map(|file| FileSource::Remote(file.url))
+                .map(|file| FileSource::Remote((file.url, file.size)))
                 .collect::<Vec<_>>()
         }
     };
@@ -318,7 +318,7 @@ fn display_source_name(source: &FileSource) -> String {
             .file_name()
             .map(|name| name.to_string_lossy().into_owned())
             .unwrap_or_else(|| path.display().to_string()),
-        FileSource::Remote(url) => display_url_file_name(url),
+        FileSource::Remote((url, _)) => display_url_file_name(url),
     }
 }
 

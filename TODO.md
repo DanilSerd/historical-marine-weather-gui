@@ -10,7 +10,6 @@
 - [ ] When open/save as window is open disable both buttons and new button.
 - [ ] Add a confirmation for cancel. And for when closing the data manager.
 - [ ] Add dataset statistics to pick directory view. Maybe also add the number of duplicates based on uid.
-- [ ] Add total file sizes for all the sources in import view.
 - [ ] Add a reset to 0/0 button to globe.
 - [ ] Add overall geo area of the selection to the stats.
 - [ ] Add version to GUI

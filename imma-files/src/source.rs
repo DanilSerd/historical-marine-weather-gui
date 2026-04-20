@@ -9,8 +9,8 @@ use crate::remote_files::parse_year_month;
 pub enum FileSource {
     /// A local file or directory path.
     Local(PathBuf),
-    /// A remote file URL.
-    Remote(Url),
+    /// A remote file URL and size.
+    Remote((Url, u64)),
 }
 
 impl PartialOrd for FileSource {
@@ -37,16 +37,22 @@ impl std::fmt::Display for FileSource {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Local(path) => write!(f, "{}", path.display()),
-            Self::Remote(url) => write!(f, "{url}"),
+            Self::Remote((url, _)) => write!(f, "{url}"),
         }
     }
 }
 
 impl FileSource {
+    pub fn size(&self) -> Option<u64> {
+        match self {
+            FileSource::Local(_) => None,
+            FileSource::Remote((_, size)) => Some(*size),
+        }
+    }
     fn raw_ordering_key(&self) -> Cow<'_, str> {
         match self {
             Self::Local(path) => path.to_string_lossy(),
-            Self::Remote(url) => Cow::Borrowed(url.as_str()),
+            Self::Remote((url, _)) => Cow::Borrowed(url.as_str()),
         }
     }
 
@@ -59,7 +65,7 @@ impl FileSource {
     fn file_name(&self) -> Option<&str> {
         match self {
             Self::Local(path) => path.file_name().and_then(|file_name| file_name.to_str()),
-            Self::Remote(url) => url
+            Self::Remote((url, _)) => url
                 .path_segments()
                 .and_then(|mut segments| segments.next_back()),
         }
@@ -68,7 +74,7 @@ impl FileSource {
     pub(crate) fn extension(&self) -> Option<&str> {
         match self {
             Self::Local(path) => path.extension().and_then(|extension| extension.to_str()),
-            Self::Remote(url) => url
+            Self::Remote((url, _)) => url
                 .path_segments()
                 .and_then(|mut segments| segments.next_back())
                 .and_then(|segment| segment.rsplit_once('.').map(|(_, extension)| extension))
@@ -95,7 +101,10 @@ mod tests {
     }
 
     fn remote_source(file_name: &str) -> FileSource {
-        FileSource::Remote(Url::parse(&format!("https://example.com/{file_name}")).unwrap())
+        FileSource::Remote((
+            Url::parse(&format!("https://example.com/{file_name}")).unwrap(),
+            32,
+        ))
     }
 
     #[test]

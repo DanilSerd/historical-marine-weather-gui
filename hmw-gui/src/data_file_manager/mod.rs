@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use chrono::Datelike;
+use iced::alignment;
 use iced::task::Handle;
 use iced::widget::{
     button, column, container, progress_bar, row, scrollable, text, text_input, toggler,
@@ -560,6 +561,9 @@ impl DataFileManager {
             sources_list = sources_list.push(text("No sources selected."));
         }
 
+        let download_size: u64 = self.sources.iter().filter_map(|f| f.size()).sum();
+        let number_of_sources: usize = self.sources.len();
+
         let scrollable = scrollable(container(sources_list).padding([6, 8]).width(Length::Fill))
             .style(style::file_list_scrollable)
             .height(Length::Fill)
@@ -603,6 +607,27 @@ impl DataFileManager {
             button::primary,
         );
 
+        let mut import_row = row([start_import])
+            .spacing(10.)
+            .align_y(alignment::Alignment::Center);
+
+        let mut formater = human_format::Formatter::new();
+        formater
+            .with_scales(human_format::Scales::Binary())
+            .with_units("B");
+
+        if download_size != 0 {
+            import_row = import_row.push(container(text(format!(
+                "Download: {}",
+                formater.format(download_size as f64)
+            ))));
+        }
+
+        if number_of_sources != 0 {
+            import_row =
+                import_row.push(container(text("Space Required: 0.1 - 10 GiB".to_string())));
+        }
+
         let advanced_settings = Collapsible::new(
             text("Advanced Settings"),
             writer_options_view(&self.writer_options),
@@ -617,7 +642,7 @@ impl DataFileManager {
             sources_row,
             dest_row,
             advanced_settings.into(),
-            start_import,
+            import_row.into(),
         ])
         .spacing(10)
         .into()
@@ -1017,7 +1042,7 @@ impl DataFileManager {
             .as_ref()
             .into_iter()
             .flat_map(|index| index.iter_in_year_range(years.clone()))
-            .map(|file| FileSource::Remote(file.url.clone()))
+            .map(|file| FileSource::Remote((file.url.clone(), file.size)))
             .collect::<Vec<_>>();
 
         match files.is_empty() {
@@ -1131,10 +1156,13 @@ fn source_name_view<'a>(source: &'a FileSource) -> Element<'a, Message> {
 fn display_source_name(source: &FileSource) -> String {
     match source {
         FileSource::Local(path) => path.display().to_string(),
-        FileSource::Remote(url) => url
-            .path_segments()
-            .and_then(|mut segments| segments.next_back().map(str::to_owned))
-            .unwrap_or_else(|| url.as_str().to_owned()),
+        FileSource::Remote((url, _)) => {
+            let path = url
+                .path_segments()
+                .and_then(|mut segments| segments.next_back())
+                .unwrap_or_else(|| url.as_str());
+            path.to_owned()
+        }
     }
 }
 
