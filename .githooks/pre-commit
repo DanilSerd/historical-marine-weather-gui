@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root=$(git rev-parse --show-toplevel)
+cd "$repo_root"
+
+export RUSTFLAGS="${RUSTFLAGS:+$RUSTFLAGS }-D warnings"
+
+printf 'Checking formatting\n'
+cargo fmt --all -- --check
+
+printf 'Checking workspace\n'
+cargo check --workspace --all-targets --locked
+
+printf 'Linting workspace\n'
+cargo clippy --workspace --all-targets --locked -- -D warnings
