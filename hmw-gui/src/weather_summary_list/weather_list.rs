@@ -94,9 +94,7 @@ impl WeatherList {
         }
 
         let mut sorted: Vec<_> = self
-            .items
-            .iter()
-            .filter_map(|(_wt, map)| {
+            .items.values().filter_map(|map| {
                 let mut items: Vec<_> = map
                     .iter()
                     .filter_map(|(id, item)| collection.get(id).map(|summary| (item, summary)))
