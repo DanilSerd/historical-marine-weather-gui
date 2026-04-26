@@ -1,10 +1,16 @@
-use std::{path::PathBuf, time::Instant};
+use std::{
+    collections::VecDeque,
+    path::PathBuf,
+    time::{Duration, Instant},
+};
 
 use console::style;
 use hmw_data::{FileSource, ParquetWriter, WriterOptions, process_imma_data_to_parquet};
 use imma_files::RemoteFileIndex;
 use indicatif::{HumanBytes, HumanCount, ProgressBar, ProgressStyle};
 use url::Url;
+
+const RECORDS_PER_SECOND_WINDOW: Duration = Duration::from_secs(5);
 
 pub enum ProcessInput {
     Local(Vec<PathBuf>),
@@ -127,7 +133,7 @@ pub async fn process_imma(
     let mut successful_files = 0usize;
     let mut failed_files = 0usize;
     let mut records_written = 0usize;
-    let mut processing_started_at: Option<Instant> = None;
+    let mut records_processed_samples = VecDeque::new();
     let mut cancelled = false;
 
     loop {
@@ -139,14 +145,15 @@ pub async fn process_imma(
                 match progress {
                     hmw_data::Progress::FilesToProcess(files) => {
                         total_files = Some(files);
-                        processing_started_at = Some(Instant::now());
+                        records_processed_samples.clear();
                         let progress_bar = create_files_progress_bar(files);
-                        progress_bar.set_message(format_records_progress_message(0, processing_started_at));
+                        progress_bar.set_message(format_records_progress_message(0, 0.0));
                         files_progress = Some(progress_bar);
                     }
                     hmw_data::Progress::ProcessedSoFar(count) => {
+                        let rate = record_items_processed_sample(&mut records_processed_samples, count);
                         if let Some(progress_bar) = files_progress.as_ref() {
-                            progress_bar.set_message(format_records_progress_message(count, processing_started_at));
+                            progress_bar.set_message(format_records_progress_message(count, rate));
                         }
                     }
                     hmw_data::Progress::Started(source) => {
@@ -171,8 +178,9 @@ pub async fn process_imma(
                     }
                     hmw_data::Progress::ConversionComplete(count) => {
                         records_written = count;
+                        let rate = record_items_processed_sample(&mut records_processed_samples, count);
                         if let Some(progress_bar) = files_progress.as_ref() {
-                            progress_bar.set_message(format_records_progress_message(count, processing_started_at));
+                            progress_bar.set_message(format_records_progress_message(count, rate));
                         }
                     }
                     hmw_data::Progress::Error((source, error)) => {
@@ -285,15 +293,44 @@ fn create_files_progress_bar(file_count: usize) -> ProgressBar {
     progress_bar
 }
 
-fn format_records_progress_message(count: usize, started_at: Option<Instant>) -> String {
-    let human_count = HumanCount(count as u64);
-    let rate = started_at
-        .map(|started_at| started_at.elapsed().as_secs_f64())
-        .filter(|elapsed| *elapsed > 0.0)
-        .map(|elapsed| count as f64 / elapsed)
-        .unwrap_or(0.0) as u64;
+fn record_items_processed_sample(
+    records_processed_samples: &mut VecDeque<(Instant, usize)>,
+    items_processed: usize,
+) -> f64 {
+    let now = Instant::now();
+    records_processed_samples.push_back((now, items_processed));
 
-    format!("{human_count} records ({}/s)", HumanCount(rate))
+    while records_processed_samples
+        .front()
+        .is_some_and(|(sampled_at, _)| now.duration_since(*sampled_at) > RECORDS_PER_SECOND_WINDOW)
+    {
+        records_processed_samples.pop_front();
+    }
+
+    records_processed_per_second(records_processed_samples)
+}
+
+fn records_processed_per_second(records_processed_samples: &VecDeque<(Instant, usize)>) -> f64 {
+    match (
+        records_processed_samples.front(),
+        records_processed_samples.back(),
+    ) {
+        (Some((started_at, started_count)), Some((ended_at, ended_count))) => {
+            match ended_at.duration_since(*started_at).as_secs_f64() {
+                elapsed if elapsed > 0.0 => {
+                    (*ended_count).saturating_sub(*started_count) as f64 / elapsed
+                }
+                _ => 0.0,
+            }
+        }
+        _ => 0.0,
+    }
+}
+
+fn format_records_progress_message(count: usize, rate: f64) -> String {
+    let human_count = HumanCount(count as u64);
+
+    format!("{human_count} records ({}/s)", HumanCount(rate as u64))
 }
 
 fn create_index_spinner() -> ProgressBar {

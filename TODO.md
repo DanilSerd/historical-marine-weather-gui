@@ -13,7 +13,6 @@
 - [ ] Add a reset to 0/0 button to globe.
 - [ ] Add overall geo area of the selection to the stats.
 - [ ] Add version to GUI
-- [ ] The speed of records processed should be a moving average.
 - [ ] Solve the memory issues on import. Need some way to control how many records to keep in memory before writing out (the current static setting is not enough it should dynamically fluctuate based on available memory)
 - [ ] Move the directory selection to a separate config section.
 - [ ] Create one summary per month for the same selection/name.

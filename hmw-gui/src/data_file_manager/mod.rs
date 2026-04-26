@@ -1,7 +1,8 @@
+use std::collections::VecDeque;
 use std::mem;
 use std::ops::RangeInclusive;
 use std::path::{Path, PathBuf};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use chrono::Datelike;
 use iced::alignment;
@@ -27,6 +28,7 @@ const NOAA_FINAL_DATA_END_YEAR: i32 = 2014;
 const BUTTON_HEIGHT: f32 = 36.0;
 const SOURCE_CONTROLS_HEIGHT: f32 = 40.0;
 const WRITER_OPTIONS_LABEL_WIDTH: f32 = 220.0;
+const RECORDS_PER_SECOND_WINDOW: Duration = Duration::from_secs(5);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Mode {
@@ -174,7 +176,7 @@ pub struct DataFileManager {
     total_files: usize,
     all_files_complete: bool,
     total_items_processed: usize,
-    import_started_at: Option<Instant>,
+    records_processed_samples: VecDeque<(Instant, usize)>,
     status_ellipsis: AnimatedEllipsis,
     advanced_settings_expanded: bool,
     writer_options: WriterOptions,
@@ -199,7 +201,7 @@ impl DataFileManager {
             total_files: Default::default(),
             all_files_complete: Default::default(),
             total_items_processed: Default::default(),
-            import_started_at: Default::default(),
+            records_processed_samples: Default::default(),
             status_ellipsis: Default::default(),
             processing_outcome: Default::default(),
             advanced_settings_expanded: Default::default(),
@@ -370,7 +372,7 @@ impl DataFileManager {
                 self.total_files = 0;
                 self.all_files_complete = false;
                 self.total_items_processed = 0;
-                self.import_started_at = Some(Instant::now());
+                self.records_processed_samples.clear();
                 self.status_ellipsis.reset();
                 self.processing_outcome = None;
 
@@ -443,6 +445,7 @@ impl DataFileManager {
             }
             Message::ProgressItemsProcessed(i) => {
                 self.total_items_processed = i;
+                self.record_items_processed_sample(i);
                 Task::none()
             }
             Message::ProgressFinished(r) => {
@@ -467,11 +470,44 @@ impl DataFileManager {
                 self.total_files = 0;
                 self.all_files_complete = false;
                 self.total_items_processed = 0;
-                self.import_started_at = None;
+                self.records_processed_samples.clear();
                 self.status_ellipsis.reset();
                 self.processing_outcome = None;
                 Task::none()
             }
+        }
+    }
+
+    fn record_items_processed_sample(&mut self, items_processed: usize) {
+        let now = Instant::now();
+        self.records_processed_samples
+            .push_back((now, items_processed));
+
+        while self
+            .records_processed_samples
+            .front()
+            .is_some_and(|(sampled_at, _)| {
+                now.duration_since(*sampled_at) > RECORDS_PER_SECOND_WINDOW
+            })
+        {
+            self.records_processed_samples.pop_front();
+        }
+    }
+
+    fn records_processed_per_second(&self) -> f64 {
+        match (
+            self.records_processed_samples.front(),
+            self.records_processed_samples.back(),
+        ) {
+            (Some((started_at, started_count)), Some((ended_at, ended_count))) => {
+                match ended_at.duration_since(*started_at).as_secs_f64() {
+                    elapsed if elapsed > 0.0 => {
+                        (*ended_count).saturating_sub(*started_count) as f64 / elapsed
+                    }
+                    _ => 0.0,
+                }
+            }
+            _ => 0.0,
         }
     }
 
@@ -804,12 +840,7 @@ impl DataFileManager {
             total_files => processed_files as f32 / total_files as f32,
         };
         let records_progress_text = {
-            let rate = self
-                .import_started_at
-                .map(|started_at| started_at.elapsed().as_secs_f64())
-                .filter(|elapsed| *elapsed > 0.0)
-                .map(|elapsed| self.total_items_processed as f64 / elapsed)
-                .unwrap_or(0.0);
+            let rate = self.records_processed_per_second();
 
             let formater = human_format::Formatter::new();
             format!(
