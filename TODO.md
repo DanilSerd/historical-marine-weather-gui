@@ -16,3 +16,4 @@
 - [ ] Solve the memory issues on import. Need some way to control how many records to keep in memory before writing out (the current static setting is not enough it should dynamically fluctuate based on available memory)
 - [ ] Move the directory selection to a separate config section.
 - [ ] Create one summary per month for the same selection/name.
+- [ ] Fix windrose labels overlapping the control bar on scroll.
