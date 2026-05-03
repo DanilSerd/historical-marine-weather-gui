@@ -11,9 +11,9 @@ pub enum Pane {
     EarthMap,
     WeatherSummaryForm,
     WeatherSummaryList,
-    WindRose,
+    DataDisplay,
     WeatherSummaryDetails,
-    WindRoseSidePanel,
+    DataDisplaySidePanel,
 }
 
 #[derive(Debug, Clone)]
@@ -77,11 +77,11 @@ impl WindrosePaneState {
         let panes = pane_grid::State::with_configuration(pane_grid::Configuration::Split {
             axis: pane_grid::Axis::Vertical,
             ratio: 0.6,
-            a: Box::new(pane_grid::Configuration::Pane(Pane::WindRose)),
+            a: Box::new(pane_grid::Configuration::Pane(Pane::DataDisplay)),
             b: Box::new(pane_grid::Configuration::Split {
                 axis: pane_grid::Axis::Horizontal,
                 ratio: 0.5,
-                a: Box::new(pane_grid::Configuration::Pane(Pane::WindRoseSidePanel)),
+                a: Box::new(pane_grid::Configuration::Pane(Pane::DataDisplaySidePanel)),
                 b: Box::new(pane_grid::Configuration::Pane(Pane::WeatherSummaryDetails)),
             }),
         });

@@ -1,3 +1,4 @@
+mod data_display_collection;
 pub mod messages;
 mod screen;
 mod state;

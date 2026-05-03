@@ -1,4 +1,3 @@
-use hmw_data::BeaufortScaleBucketer;
 use iced::{
     Element, Task,
     widget::{pane_grid, row},
@@ -7,12 +6,12 @@ use iced::{
 use crate::{
     collection::WeatherSummaryCollection,
     earth_map::{EarthMap, EarthMapMessage},
-    types::{WeatherSummaryData, WeatherSummaryType},
     utils::{ControlBarIcon, control_bar_icon, tooltip_button},
+    weather_summary_collection::data_display_collection::DataDisplay,
     weather_summary_details::WeatherSummaryDetails,
     weather_summary_form::NewWeatherSummaryForm,
     weather_summary_list::{WeatherList, WeatherListMessage},
-    windrose::{WindRose, WindRoseColorStrategy},
+    windrose::WindRoseColorStrategy,
 };
 
 use super::{
@@ -25,7 +24,7 @@ pub struct WeatherSummaryCollectionScreensState {
     pub collection: WeatherSummaryCollection,
     new_summary_form: Option<NewWeatherSummaryForm>,
     pub earth_map: EarthMap,
-    wind_display: WindRose<BeaufortScaleBucketer>,
+    data_display: DataDisplay,
     summary_details: WeatherSummaryDetails,
     summary_list: WeatherList,
     screen: Screen,
@@ -41,7 +40,7 @@ impl WeatherSummaryCollectionScreensState {
             collection,
             new_summary_form: None,
             earth_map,
-            wind_display: WindRose::new(wind_rose_color_strategy.clone()),
+            data_display: DataDisplay::new(wind_rose_color_strategy),
             summary_details: WeatherSummaryDetails::default(),
             summary_list: WeatherList::new(),
             screen: Screen::default(),
@@ -49,13 +48,7 @@ impl WeatherSummaryCollectionScreensState {
         s.collection.iter().for_each(|(id, summary)| {
             s.summary_list.add(*id, &s.collection);
             s.summary_details.add(*id);
-            match &summary.data {
-                WeatherSummaryData::Wind(h) => {
-                    s.wind_display.insert(id, h, false);
-                }
-                WeatherSummaryData::Error(_) => (),
-                WeatherSummaryData::None => (),
-            }
+            s.data_display.insert(summary, false);
         });
         s
     }
@@ -98,7 +91,7 @@ impl WeatherSummaryCollectionScreensState {
                 match &m {
                     WeatherListMessage::Delete(id) => {
                         self.collection.remove(id);
-                        self.wind_display.remove(id);
+                        self.data_display.remove(id);
                         summary_selection_changed = true;
                         if self
                             .new_summary_form
@@ -118,7 +111,7 @@ impl WeatherSummaryCollectionScreensState {
                         self.new_summary_form = self
                             .collection
                             .get(id)
-                            .map(|s| NewWeatherSummaryForm::new_edit(&s.params, &self.collection));
+                            .map(|s| NewWeatherSummaryForm::new_edit(s, &self.collection));
                         self.screen.open_form();
                         map_selection_changed = true;
                     }
@@ -126,7 +119,7 @@ impl WeatherSummaryCollectionScreensState {
                         self.new_summary_form = self
                             .collection
                             .get(id)
-                            .map(|s| NewWeatherSummaryForm::new_copy(&s.params, &self.collection));
+                            .map(|s| NewWeatherSummaryForm::new_copy(s, &self.collection));
                         self.screen.open_form();
                         map_selection_changed = true;
                     }
@@ -139,13 +132,8 @@ impl WeatherSummaryCollectionScreensState {
                 self.summary_list.update(m, &self.collection);
                 Task::none()
             }
-            WeatherSummaryCollectionMessage::WindRoseMessage(m, t) => {
-                match t {
-                    WeatherSummaryType::Wind => {
-                        self.wind_display
-                            .update(m, self.collection.iter_wind_data());
-                    }
-                };
+            WeatherSummaryCollectionMessage::DataDisplayMessage(m) => {
+                self.data_display.update(m, &self.collection);
                 Task::none()
             }
             WeatherSummaryCollectionMessage::NewWeatherSummaryFormMessage(m) => self
@@ -160,23 +148,19 @@ impl WeatherSummaryCollectionScreensState {
                 let id = form_submitted.params.header.id;
                 let task = self
                     .collection
-                    .add(form_submitted.params)
-                    .map(|(id, data)| WeatherSummaryCollectionMessage::SummaryLoaded(id, data));
+                    .add(form_submitted.params, form_submitted.kind)
+                    .map(WeatherSummaryCollectionMessage::SummaryLoaded);
                 self.summary_list.add(id, &self.collection);
                 self.summary_details.add(id);
                 map_selection_changed = true;
                 summary_selection_changed = true;
                 task
             }
-            WeatherSummaryCollectionMessage::SummaryLoaded(id, data) => {
-                self.collection.finish_load(&id, data);
+            WeatherSummaryCollectionMessage::SummaryLoaded(s) => {
+                let id = s.params().header.id;
+                self.collection.finish_load(s);
                 if let Some(s) = self.collection.get(&id) {
-                    match &s.data {
-                        WeatherSummaryData::Wind(h) => {
-                            self.wind_display.insert(&id, h, false);
-                        }
-                        WeatherSummaryData::Error(_) | WeatherSummaryData::None => {}
-                    }
+                    self.data_display.insert(s, false);
                 }
                 Task::none()
             }
@@ -202,7 +186,7 @@ impl WeatherSummaryCollectionScreensState {
                         self.new_summary_form = None;
                         map_selection_changed = true;
                     }
-                    PaneMessage::CloseWindRose => {
+                    PaneMessage::CloseDataDisplay => {
                         self.screen.selection = ScreenSelection::Main;
                     }
                     PaneMessage::None => (),
@@ -218,7 +202,7 @@ impl WeatherSummaryCollectionScreensState {
         };
 
         if summary_selection_changed {
-            self.wind_display
+            self.data_display
                 .set_visible(self.summary_list.all_selected());
             self.summary_details
                 .set_visible(self.summary_list.all_selected());
@@ -228,7 +212,7 @@ impl WeatherSummaryCollectionScreensState {
             let iter_highlighted = self
                 .summary_details
                 .all_show_points_on_map()
-                .filter_map(|id| self.collection.get(id).map(|d| d.params.geo.iter()))
+                .filter_map(|id| self.collection.get(id).map(|d| d.params().geo.iter()))
                 .flatten();
             match &self.new_summary_form {
                 Some(f) => self
@@ -278,10 +262,6 @@ impl WeatherSummaryCollectionScreensState {
         );
 
         row([new_form, summary_or_main]).spacing(5).into()
-    }
-
-    fn selected_summaries_type(&self) -> Option<WeatherSummaryType> {
-        self.summary_list.type_selected
     }
 
     fn view_windrose<'a>(
@@ -342,7 +322,7 @@ impl WeatherSummaryCollectionScreensState {
                         "Edit Summary ({})",
                         self.collection
                             .get(&form.id)
-                            .map(|s| s.params.header.name.as_str())
+                            .map(|s| s.params().header.name.as_str())
                             .unwrap_or_default()
                     )
                 } else {
@@ -355,25 +335,13 @@ impl WeatherSummaryCollectionScreensState {
                     Some(PaneMessage::CloseForm),
                 )
             }
-            Pane::WindRose => {
-                let (rose, title, rose_type) = match self.selected_summaries_type() {
-                    Some(WeatherSummaryType::Wind) => (
-                        self.wind_display.view_wind_rose(&self.collection),
-                        "Wind Rose",
-                        WeatherSummaryType::Wind,
-                    ),
-                    None => (
-                        self.wind_display.view_wind_rose(&self.collection),
-                        "Wind Rose",
-                        WeatherSummaryType::Wind,
-                    ),
-                };
+            Pane::DataDisplay => {
+                let selected_type = self.summary_list.type_selected.unwrap_or_default();
+                let (title, element) = self.data_display.view_data(selected_type, &self.collection);
                 content(
-                    rose.map(move |m| {
-                        WeatherSummaryCollectionMessage::WindRoseMessage(m, rose_type)
-                    }),
+                    element.map(WeatherSummaryCollectionMessage::DataDisplayMessage),
                     title,
-                    Some(PaneMessage::CloseWindRose),
+                    Some(PaneMessage::CloseDataDisplay),
                 )
             }
             Pane::WeatherSummaryDetails => content(
@@ -383,18 +351,12 @@ impl WeatherSummaryCollectionScreensState {
                 "Summary Details",
                 None,
             ),
-            Pane::WindRoseSidePanel => {
-                let rose_type = self
-                    .selected_summaries_type()
-                    .unwrap_or(WeatherSummaryType::Wind);
-                let rose = match rose_type {
-                    WeatherSummaryType::Wind => self.wind_display.view_sidepanel(),
-                };
+            Pane::DataDisplaySidePanel => {
+                let selected_type = self.summary_list.type_selected.unwrap_or_default();
+                let (title, element) = self.data_display.view_sidepanel(selected_type);
                 content(
-                    rose.map(move |m| {
-                        WeatherSummaryCollectionMessage::WindRoseMessage(m, rose_type)
-                    }),
-                    "Key and controls",
+                    element.map(WeatherSummaryCollectionMessage::DataDisplayMessage),
+                    title,
                     None,
                 )
             }

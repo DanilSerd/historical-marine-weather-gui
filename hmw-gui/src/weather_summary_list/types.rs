@@ -1,11 +1,11 @@
 use std::fmt::Display;
 
-use crate::types::{WeatherSummaryData, WeatherSummaryId, WeatherSummaryType};
+use crate::types::{WeatherSummaryId, WeatherSummaryKindEnum};
 
 #[derive(Debug, Clone)]
 pub enum WeatherListMessage {
     Delete(WeatherSummaryId),
-    Checked(WeatherSummaryType, Option<WeatherSummaryId>, bool),
+    Checked(WeatherSummaryKindEnum, Option<WeatherSummaryId>, bool),
     Hovered(WeatherSummaryId, bool),
     Edit(WeatherSummaryId),
     Duplicate(WeatherSummaryId),
@@ -20,12 +20,12 @@ pub enum WeatherListItemStatus {
     Error(String),
 }
 
-impl From<&WeatherSummaryData> for WeatherListItemStatus {
-    fn from(value: &WeatherSummaryData) -> Self {
+impl From<Result<bool, &str>> for WeatherListItemStatus {
+    fn from(value: Result<bool, &str>) -> Self {
         match value {
-            WeatherSummaryData::Error(e) => WeatherListItemStatus::Error(e.clone()),
-            WeatherSummaryData::None => WeatherListItemStatus::Loading,
-            _ => WeatherListItemStatus::Loaded,
+            Ok(true) => WeatherListItemStatus::Loaded,
+            Ok(false) => WeatherListItemStatus::Loading,
+            Err(e) => WeatherListItemStatus::Error(e.to_owned()),
         }
     }
 }

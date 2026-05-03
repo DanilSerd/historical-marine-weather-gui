@@ -2,6 +2,7 @@ use hmw_geo::LatticeEntry;
 use iced::widget::container;
 use iced::{Element, Length, Task};
 
+use crate::types::{WeatherSummary, WeatherSummaryKindEnum};
 use crate::{
     collection::WeatherSummaryCollection,
     types::{WeatherSummaryHeader, WeatherSummaryId, WeatherSummaryParams},
@@ -50,23 +51,33 @@ impl NewWeatherSummaryForm {
         }
     }
 
-    pub fn new_copy(params: &WeatherSummaryParams, collection: &WeatherSummaryCollection) -> Self {
-        let mut form = Self::new_from_params(params.clone(), collection, false);
+    pub fn new_copy(summary: &WeatherSummary, collection: &WeatherSummaryCollection) -> Self {
+        let mut form = Self::new_from_params(
+            summary.params().clone(),
+            summary.kind_enum(),
+            collection,
+            false,
+        );
         form.id = WeatherSummaryId::random();
         let existing_names = collection
             .iter()
-            .map(|(_, summary)| summary.params.header.name.as_str());
+            .map(|(_, s)| s.params().header.name.as_str());
         form.name.update(
             NameSelectorMessage {
-                name: format!("{} (copy)", params.header.name),
+                name: format!("{} (copy)", summary.params().header.name),
             },
             existing_names,
         );
         form
     }
 
-    pub fn new_edit(params: &WeatherSummaryParams, collection: &WeatherSummaryCollection) -> Self {
-        Self::new_from_params(params.clone(), collection, true)
+    pub fn new_edit(summary: &WeatherSummary, collection: &WeatherSummaryCollection) -> Self {
+        Self::new_from_params(
+            summary.params().clone(),
+            summary.kind_enum(),
+            collection,
+            true,
+        )
     }
 
     pub fn all_geo_nodes_selected(&self) -> impl Iterator<Item = &LatticeEntry> {
@@ -80,14 +91,13 @@ impl NewWeatherSummaryForm {
 
     fn new_from_params(
         params: WeatherSummaryParams,
+        kind: WeatherSummaryKindEnum,
         collection: &WeatherSummaryCollection,
         edit: bool,
     ) -> Self {
         Self {
             name: NameSelector::new(params.header.name),
-            weather_type_selector: WeatherTypeSelector {
-                weather_type: params.header.summary_type,
-            },
+            weather_type_selector: WeatherTypeSelector { weather_type: kind },
             geo_list: LatticeNodesSelectedList::new_with(params.geo),
             months_selector: MonthsSelector {
                 months: params.months,
@@ -117,7 +127,7 @@ impl NewWeatherSummaryForm {
                 let existing_names = collection
                     .iter()
                     .filter(|(id, _)| &self.id != *id)
-                    .map(|(_, summary)| summary.params.header.name.as_str());
+                    .map(|(_, summary)| summary.params().header.name.as_str());
                 self.name.update(message, existing_names);
                 Task::none()
             }
@@ -139,15 +149,15 @@ impl NewWeatherSummaryForm {
                 std::mem::swap(self, &mut form);
                 Task::done(FormSubmitted {
                     params: WeatherSummaryParams {
-                        header: WeatherSummaryHeader::new(
-                            form.id,
-                            form.name.name,
-                            form.weather_type_selector.weather_type,
-                        ),
+                        header: WeatherSummaryHeader {
+                            id: form.id,
+                            name: form.name.name,
+                        },
                         geo: form.geo_list.nodes.into_iter().collect(),
                         months: form.months_selector.months,
                         epoch: form.epoch_selector.epoch.expect("epoch is set"),
                     },
+                    kind: form.weather_type_selector.weather_type,
                 })
             }
             NewWeatherSummaryFormMessage::None => panic!("None message is never sent"),
@@ -225,4 +235,5 @@ impl NewWeatherSummaryForm {
 #[derive(Debug, Clone)]
 pub struct FormSubmitted {
     pub params: WeatherSummaryParams,
+    pub kind: WeatherSummaryKindEnum,
 }

@@ -1,16 +1,13 @@
 use std::{collections::HashMap, path::Path};
 
-use hmw_data::{BeaufortScaleBucketer, DataVersion, DirectionalIntensityHistogram};
+use hmw_data::DataVersion;
 use iced::{Task, task::Handle};
 use rfd::FileHandle;
 use serde::{Deserialize, Serialize};
 
 use crate::{
     loader::{Loader, LoaderStats},
-    types::{
-        WeatherSummary, WeatherSummaryData, WeatherSummaryId, WeatherSummaryParams,
-        WeatherSummaryType,
-    },
+    types::{WeatherSummary, WeatherSummaryId, WeatherSummaryKindEnum, WeatherSummaryParams},
 };
 
 pub struct WeatherSummaryCollection {
@@ -43,21 +40,15 @@ impl WeatherSummaryCollection {
     pub fn open(file: FileHandle, loader: Loader) -> Task<Result<Self, &'static str>> {
         let open_future = async move {
             let serialized = file.read().await;
-            let file_format: CollectionFileFormat =
+            let file_format: FileFormat =
                 serde_json::from_slice(&serialized).map_err(|_| "Failed to deserialize")?;
 
-            if file_format.data_version != loader.data_version() {
+            if file_format.version != loader.data_version() {
                 return Err("Data version mismatch");
             }
 
-            let summaries: HashMap<WeatherSummaryId, WeatherSummary> = file_format
-                .summaries
-                .into_iter()
-                .map(|s| (s.header.id, WeatherSummary::new(s)))
-                .collect();
-
             Ok(Self {
-                summaries,
+                summaries: file_format.summaries,
                 load_abort_handles: HashMap::new(),
                 loader,
                 saving: Saving::new(Some(file), SavingStatus::Saved),
@@ -67,7 +58,7 @@ impl WeatherSummaryCollection {
         Task::future(open_future)
     }
 
-    pub fn finish_open(&mut self) -> Task<(WeatherSummaryId, WeatherSummaryData)> {
+    pub fn finish_open(&mut self) -> Task<WeatherSummary> {
         let ids = self.summaries.keys().copied().collect::<Vec<_>>();
         let loading_tasks = ids.iter().map(|id| self.load_data(id));
 
@@ -81,35 +72,29 @@ impl WeatherSummaryCollection {
     pub fn add(
         &mut self,
         summary: WeatherSummaryParams,
-    ) -> Task<(WeatherSummaryId, WeatherSummaryData)> {
+        kind: WeatherSummaryKindEnum,
+    ) -> Task<WeatherSummary> {
         let id = summary.header.id;
-        self.summaries.insert(id, WeatherSummary::new(summary));
+        self.summaries
+            .insert(id, WeatherSummary::new(summary, kind));
         self.saving.mark_unsaved();
         self.load_data(&id)
     }
 
-    fn load_data(&mut self, id: &WeatherSummaryId) -> Task<(WeatherSummaryId, WeatherSummaryData)> {
+    fn load_data(&mut self, id: &WeatherSummaryId) -> Task<WeatherSummary> {
         let summary = match self.get(id) {
-            Some(summary) if summary.data.is_none() => summary,
+            Some(summary) if !summary.data_avaialble().unwrap_or_default() => summary,
             _ => return Task::none(),
         };
 
-        let params = summary.params.clone();
-        let id = summary.params.header.id;
+        let summary_clone = summary.clone();
+        let id = summary.params().header.id;
         let loader = self.loader.clone();
-        match summary.params.header.summary_type {
-            WeatherSummaryType::Wind => {
-                let future = async move {
-                    let data = loader
-                        .load_directional_histogram::<BeaufortScaleBucketer>(&params)
-                        .await;
-                    (id, data.into())
-                };
-                let (task, handle) = Task::future(future).abortable();
-                self.load_abort_handles.insert(id, handle.abort_on_drop());
-                task
-            }
-        }
+
+        let future = summary_clone.populate_data(loader);
+        let (task, handle) = Task::future(future).abortable();
+        self.load_abort_handles.insert(id, handle.abort_on_drop());
+        task
     }
 
     pub fn remove(&mut self, id: &WeatherSummaryId) {
@@ -118,15 +103,16 @@ impl WeatherSummaryCollection {
         self.saving.mark_unsaved();
     }
 
-    pub fn finish_load(&mut self, id: &WeatherSummaryId, data: WeatherSummaryData) {
-        if let Some(summary) = self.summaries.get_mut(id) {
+    pub fn finish_load(&mut self, summary: WeatherSummary) {
+        let id = summary.params().header.id;
+        if let Some(s) = self.summaries.get_mut(&id) {
             #[cfg(debug_assertions)]
-            if let WeatherSummaryData::Error(e) = &data {
+            if let Err(e) = summary.data_avaialble() {
                 dbg!(format!("Error loading data for {id}: {e}"));
             }
-            summary.data = data;
+            *s = summary;
         }
-        self.load_abort_handles.remove(id);
+        self.load_abort_handles.remove(&id);
     }
 
     pub fn is_empty(&self) -> bool {
@@ -135,22 +121,6 @@ impl WeatherSummaryCollection {
 
     pub fn iter(&self) -> impl Iterator<Item = (&WeatherSummaryId, &WeatherSummary)> {
         self.summaries.iter()
-    }
-
-    pub fn iter_wind_data(
-        &self,
-    ) -> impl Iterator<
-        Item = (
-            &WeatherSummaryId,
-            &DirectionalIntensityHistogram<BeaufortScaleBucketer>,
-        ),
-    > {
-        self.iter()
-            .filter(|(_, summary)| summary.params.header.summary_type == WeatherSummaryType::Wind)
-            .filter_map(|(id, summary)| match &summary.data {
-                WeatherSummaryData::Wind(h) => Some((id, h.as_ref())),
-                _ => None,
-            })
     }
 
     /// Returns a tuple of (savable, savable_as)
@@ -167,12 +137,13 @@ impl WeatherSummaryCollection {
             }
         };
 
-        let format = CollectionFileFormat {
-            data_version: self.loader.data_version(),
-            summaries: self.summaries.values().map(|s| s.params.clone()).collect(),
+        let format = FileFormatRef {
+            version: self.loader.data_version(),
+            summaries: &self.summaries,
         };
 
-        let serialized = serde_json::to_vec(&format).map_err(|_| "Failed to serialize to bytes")?;
+        let serialized =
+            serde_json::to_vec(&format).map_err(|_| "Failed to serialize collection")?;
 
         let future = async move { file.write(&serialized).await.map(|_| file) };
 
@@ -266,8 +237,14 @@ impl std::fmt::Display for SavingStatus {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-struct CollectionFileFormat {
-    data_version: DataVersion,
-    summaries: Vec<WeatherSummaryParams>,
+#[derive(Debug, Deserialize)]
+struct FileFormat {
+    version: DataVersion,
+    summaries: HashMap<WeatherSummaryId, WeatherSummary>,
+}
+
+#[derive(Debug, Serialize)]
+struct FileFormatRef<'a> {
+    version: DataVersion,
+    summaries: &'a HashMap<WeatherSummaryId, WeatherSummary>,
 }

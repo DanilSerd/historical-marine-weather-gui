@@ -95,7 +95,7 @@ impl MainWindowState {
                     .unwrap()
                     .collection
                     .finish_open()
-                    .map(|(i, d)| WeatherSummaryCollectionMessage::SummaryLoaded(i, d))
+                    .map(WeatherSummaryCollectionMessage::SummaryLoaded)
                     .map(MainWindowMessage::CollectionMessage)
             }
             MainWindowMessage::CollectionError(e) => {

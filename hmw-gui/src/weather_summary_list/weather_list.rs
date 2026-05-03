@@ -8,7 +8,7 @@ use iced::{
 use crate::{
     collection::WeatherSummaryCollection,
     consts::ICON_FONT,
-    types::{WeatherSummaryId, WeatherSummaryType},
+    types::{WeatherSummaryId, WeatherSummaryKindEnum},
     utils::icon_widget,
     widgets::follow_tooltip,
 };
@@ -19,8 +19,8 @@ use super::types::{
 };
 
 pub struct WeatherList {
-    items: HashMap<WeatherSummaryType, HashMap<WeatherSummaryId, WeatherListItem>>,
-    pub type_selected: Option<WeatherSummaryType>,
+    items: HashMap<WeatherSummaryKindEnum, HashMap<WeatherSummaryId, WeatherListItem>>,
+    pub type_selected: Option<WeatherSummaryKindEnum>,
     pub new_button_enabled: bool,
 }
 
@@ -37,16 +37,16 @@ impl WeatherList {
         match message {
             WeatherListMessage::Delete(id) => {
                 if let Some(summary) = collection.get(&id)
-                    && let Some(map) = self.items.get_mut(&summary.params.header.summary_type)
+                    && let Some(map) = self.items.get_mut(&summary.kind_enum())
                 {
                     map.remove(&id);
                 }
             }
-            WeatherListMessage::Checked(summary_type, ids, selected) => {
-                if self.type_selected.is_none() || self.type_selected != Some(summary_type) {
-                    self.type_selected = Some(summary_type);
+            WeatherListMessage::Checked(summary_kind, ids, selected) => {
+                if self.type_selected.is_none() || self.type_selected != Some(summary_kind) {
+                    self.type_selected = Some(summary_kind);
                 }
-                if let Some(map) = self.items.get_mut(&summary_type) {
+                if let Some(map) = self.items.get_mut(&summary_kind) {
                     match ids {
                         Some(id) => {
                             if let Some(i) = map.get_mut(&id) {
@@ -62,7 +62,7 @@ impl WeatherList {
             }
             WeatherListMessage::Hovered(id, hovered) => {
                 if let Some(summary) = collection.get(&id)
-                    && let Some(map) = self.items.get_mut(&summary.params.header.summary_type)
+                    && let Some(map) = self.items.get_mut(&summary.kind_enum())
                     && let Some(i) = map.get_mut(&id)
                 {
                     i.hovered = hovered;
@@ -75,7 +75,7 @@ impl WeatherList {
     pub fn add(&mut self, id: WeatherSummaryId, collection: &WeatherSummaryCollection) {
         if let Some(summary) = collection.get(&id) {
             self.items
-                .entry(summary.params.header.summary_type)
+                .entry(summary.kind_enum())
                 .or_default()
                 .insert(id, WeatherListItem::new());
         }
@@ -101,18 +101,18 @@ impl WeatherList {
                     .iter()
                     .filter_map(|(id, item)| collection.get(id).map(|summary| (item, summary)))
                     .collect();
-                items.sort_by_key(|(_, s)| s.params.header.id);
+                items.sort_by_key(|(_, s)| s.params().header.id);
                 if items.is_empty() {
                     return None;
                 }
                 Some(items)
             })
             .collect();
-        sorted.sort_by_key(|v| v[0].1.params.header.summary_type);
+        sorted.sort_by_key(|v| v[0].1.kind_enum());
         let iter = sorted.into_iter();
 
         let element = iced::widget::scrollable(iced::widget::column(iter.map(|v| {
-            let element_type = v[0].1.params.header.summary_type;
+            let element_type = v[0].1.kind_enum();
             let type_is_same_as_current_selected =
                 self.type_selected.is_none() || self.type_selected == Some(element_type);
 
@@ -123,7 +123,7 @@ impl WeatherList {
                 if !item.selected {
                     all_ids_selected = false;
                 }
-                let status: WeatherListItemStatus = (&summary.data).into();
+                let status: WeatherListItemStatus = summary.data_avaialble().into();
                 let summary_status = match &status {
                     WeatherListItemStatus::Loading => {
                         follow_tooltip(icon_widget("⏳"), iced::widget::text("Loading"))
@@ -145,7 +145,7 @@ impl WeatherList {
                         .on_toggle(move |checked| {
                             WeatherListMessage::Checked(
                                 element_type,
-                                Some(summary.params.header.id),
+                                Some(summary.params().header.id),
                                 checked,
                             )
                         })
@@ -159,7 +159,7 @@ impl WeatherList {
                     iced::widget::pick_list(
                         &ALL_LIST_ITEM_CONTROL_OPTIONS[..],
                         Option::<WeatherListItemControlOption>::None,
-                        |option| option.to_message(summary.params.header.id),
+                        |option| option.to_message(summary.params().header.id),
                     )
                     .style(|theme: &iced::Theme, status| {
                         let palate = theme.extended_palette();
@@ -192,17 +192,23 @@ impl WeatherList {
                 };
 
                 let mut name: iced::widget::MouseArea<'_, WeatherListMessage, _, _> = mouse_area(
-                    iced::widget::text(&summary.params.header.name)
+                    iced::widget::text(&summary.params().header.name)
                         .font(font)
                         .wrapping(iced::widget::text::Wrapping::Glyph),
                 )
-                .on_enter(WeatherListMessage::Hovered(summary.params.header.id, true))
-                .on_exit(WeatherListMessage::Hovered(summary.params.header.id, false));
+                .on_enter(WeatherListMessage::Hovered(
+                    summary.params().header.id,
+                    true,
+                ))
+                .on_exit(WeatherListMessage::Hovered(
+                    summary.params().header.id,
+                    false,
+                ));
 
                 if status == WeatherListItemStatus::Loaded && type_is_same_as_current_selected {
                     name = name.on_press(WeatherListMessage::Checked(
                         element_type,
-                        Some(summary.params.header.id),
+                        Some(summary.params().header.id),
                         !item.selected,
                     ));
                 }
@@ -214,7 +220,7 @@ impl WeatherList {
                         .height(Length::Fill)
                         .into(),
                     checkbox,
-                    iced::widget::text(summary.params.header.summary_type.symbol())
+                    iced::widget::text(summary.kind_enum().symbol())
                         .font(ICON_FONT)
                         .into(),
                     container(name).width(Length::FillPortion(3)).into(),
@@ -240,7 +246,7 @@ impl WeatherList {
                 iced::widget::text(element_type.symbol())
                     .font(ICON_FONT)
                     .into(),
-                iced::widget::text(element_type.to_string()).into(),
+                iced::widget::text(element_type.name()).into(),
             ])
             .spacing(6);
 

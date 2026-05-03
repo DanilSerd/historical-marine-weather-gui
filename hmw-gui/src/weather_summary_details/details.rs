@@ -9,7 +9,7 @@ use iced::{
 use crate::{
     collection::WeatherSummaryCollection,
     consts::ICON_FONT,
-    types::{WeatherSummaryId, WeatherSummaryParams},
+    types::{WeatherSummary, WeatherSummaryId},
     weather_summary_stats::WeatherSummaryStats,
 };
 
@@ -83,12 +83,12 @@ impl WeatherSummaryDetails {
                 let Some(summary) = collection.get(&id) else {
                     return;
                 };
-                let Some(stats) = summary.data.stats() else {
+                let Some(stats) = summary.data_stats() else {
                     return;
                 };
 
                 let year_range = summary
-                    .params
+                    .params()
                     .epoch
                     .get_year_range()
                     .map(|range| *range.start() as i32..=*range.end() as i32);
@@ -122,10 +122,10 @@ impl WeatherSummaryDetails {
             && let Some(control) = self.list.get(&selected_stats.id)
             && control.visible
             && let Some(summary) = collection.get(&selected_stats.id)
-            && let Some(stats) = summary.data.stats()
+            && let Some(stats) = summary.data_stats()
         {
             return container(scrollable(selected_stats.view.view(
-                &summary.params.header.name,
+                &summary.params().header.name,
                 stats,
                 WeatherSummaryDetailsMessage::CloseStats,
             )))
@@ -141,10 +141,10 @@ impl WeatherSummaryDetails {
             .filter_map(|(id, d)| collection.get(id).map(|summary| (summary, d)))
             .collect();
 
-        collection_iter.sort_by_key(|(summary, _)| summary.params.header.id);
+        collection_iter.sort_by_key(|(summary, _)| summary.params().header.id);
 
         let detail_iter = collection_iter.iter().map(|(summary, control)| {
-            let header = text(&summary.params.header.name).size(18).font(Font {
+            let header = text(&summary.params().header.name).size(18).font(Font {
                 weight: Weight::Bold,
                 ..Font::DEFAULT
             });
@@ -153,7 +153,7 @@ impl WeatherSummaryDetails {
                 row([
                     column([
                         text("Show on Globe").into(),
-                        text(selected_cells_label(summary.params.geo.len()))
+                        text(selected_cells_label(summary.params().geo.len()))
                             .size(13)
                             .into(),
                     ])
@@ -162,7 +162,7 @@ impl WeatherSummaryDetails {
                     toggler(control.show_points_on_map)
                         .on_toggle(|show| {
                             WeatherSummaryDetailsMessage::ToggleShowPointsOnMap(
-                                summary.params.header.id,
+                                summary.params().header.id,
                                 show,
                             )
                         })
@@ -172,13 +172,12 @@ impl WeatherSummaryDetails {
                 .align_y(Alignment::Center)
                 .into(),
                 summary
-                    .data
-                    .stats()
+                    .data_stats()
                     .map(|_| {
                         button("View stats")
                             .style(button::secondary)
                             .on_press(WeatherSummaryDetailsMessage::OpenStats(
-                                summary.params.header.id,
+                                summary.params().header.id,
                             ))
                             .into()
                     })
@@ -187,13 +186,9 @@ impl WeatherSummaryDetails {
             .spacing(16)
             .align_y(Alignment::Center);
 
-            let card = column([
-                header.into(),
-                params_to_element(&summary.params),
-                actions.into(),
-            ])
-            .spacing(12)
-            .width(Length::Fill);
+            let card = column([header.into(), summary_to_element(summary), actions.into()])
+                .spacing(12)
+                .width(Length::Fill);
 
             container(card)
                 .padding(12)
@@ -225,7 +220,7 @@ impl From<WeatherSummaryId> for WeatherSummaryControl {
     }
 }
 
-fn params_to_element(params: &WeatherSummaryParams) -> Element<'_, WeatherSummaryDetailsMessage> {
+fn summary_to_element(summary: &WeatherSummary) -> Element<'_, WeatherSummaryDetailsMessage> {
     column([
         row([
             text("Type")
@@ -236,10 +231,8 @@ fn params_to_element(params: &WeatherSummaryParams) -> Element<'_, WeatherSummar
                 })
                 .into(),
             row([
-                text(params.header.summary_type.symbol())
-                    .font(ICON_FONT)
-                    .into(),
-                text(params.header.summary_type.to_string()).into(),
+                text(summary.kind_enum().symbol()).font(ICON_FONT).into(),
+                text(summary.kind_enum().name()).into(),
             ])
             .spacing(8)
             .align_y(Alignment::Center)
@@ -251,14 +244,15 @@ fn params_to_element(params: &WeatherSummaryParams) -> Element<'_, WeatherSummar
         .into(),
         detail_row(
             "Months",
-            params
+            summary
+                .params()
                 .months
                 .iter()
                 .map(|m| m.name())
                 .collect::<Vec<_>>()
                 .join(", "),
         ),
-        detail_row("Years", params.epoch.to_string()),
+        detail_row("Years", summary.params().epoch.to_string()),
     ])
     .spacing(8)
     .into()

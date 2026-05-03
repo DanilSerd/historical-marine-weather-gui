@@ -254,7 +254,7 @@ where
         sorted.sort_by_key(|d| d.id);
         let iter = sorted
             .into_iter()
-            .filter_map(|d| collection.get(&d.id).map(|h| (d, &h.params.header)));
+            .filter_map(|d| collection.get(&d.id).map(|h| (d, &h.params().header)));
 
         let max_directional_probablity = self.visible_max_directional_probability();
         let max_sum_probability = self.visible_max_sum_probability();

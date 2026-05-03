@@ -2,21 +2,21 @@ use iced::widget::pane_grid;
 
 use crate::{
     earth_map::EarthMapMessage,
-    types::{WeatherSummaryData, WeatherSummaryId, WeatherSummaryType},
+    types::WeatherSummary,
+    weather_summary_collection::data_display_collection::DataDisplayMessage,
     weather_summary_details::WeatherSummaryDetailsMessage,
     weather_summary_form::{FormSubmitted, NewWeatherSummaryFormMessage},
     weather_summary_list::WeatherListMessage,
-    windrose::WindRoseMessage,
 };
 
 #[derive(Debug, Clone, Default)]
 pub enum WeatherSummaryCollectionMessage {
     EarthMapMessage(EarthMapMessage),
     WeatherListMessage(WeatherListMessage),
-    WindRoseMessage(WindRoseMessage, WeatherSummaryType),
+    DataDisplayMessage(DataDisplayMessage),
     NewWeatherSummaryFormMessage(NewWeatherSummaryFormMessage),
     WeatherSummaryFormSubmitted(FormSubmitted),
-    SummaryLoaded(WeatherSummaryId, WeatherSummaryData),
+    SummaryLoaded(WeatherSummary),
     PaneMessage(PaneMessage),
     ControlBarMessage(ControlBarMessage),
     WeatherSummaryDetailsMessage(WeatherSummaryDetailsMessage),
@@ -34,7 +34,7 @@ pub enum ControlBarMessage {
 pub enum PaneMessage {
     Resized(pane_grid::ResizeEvent),
     CloseForm,
-    CloseWindRose,
+    CloseDataDisplay,
     #[default]
     None,
 }
