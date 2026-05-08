@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use iced::advanced::{
-    Layout, Widget,
+    Layout, Renderer as _, Widget,
     layout::{self, Node},
     mouse::Cursor,
     overlay,
@@ -238,7 +238,7 @@ impl Widget<(), Theme, Renderer> for WindRoseWidget {
         tree: &'a mut Tree,
         layout: Layout<'a>,
         _renderer: &Renderer,
-        _viewport: &Rectangle,
+        viewport: &Rectangle,
         translation: Vector,
     ) -> Option<overlay::Element<'a, (), Theme, Renderer>> {
         let State {
@@ -254,16 +254,25 @@ impl Widget<(), Theme, Renderer> for WindRoseWidget {
             .bounds();
         shader_bounds.x += translation.x;
         shader_bounds.y += translation.y;
+        let mut widget_bounds = layout.bounds();
+        widget_bounds.x += translation.x;
+        widget_bounds.y += translation.y;
         let (_, overlay_children) = tree.children.split_first_mut().expect("shader tree exists");
         let (label_trees, tooltip_tree) = overlay_children.split_at_mut(self.gridline_labels.len());
 
-        let mut children = vec![overlay::Element::new(Box::new(GridlineLabelsOverlay {
-            labels: &mut self.gridline_labels,
-            trees: label_trees,
-            shader_bounds,
-            scaling_factor: self.scaling_factor,
-            apply_scaling_factor_to_gridlines: self.apply_scaling_factor_to_gridlines,
-        }))];
+        let mut children = widget_bounds
+            .intersection(viewport)
+            .map(|clip_bounds| {
+                vec![overlay::Element::new(Box::new(GridlineLabelsOverlay {
+                    labels: &mut self.gridline_labels,
+                    trees: label_trees,
+                    shader_bounds,
+                    clip_bounds,
+                    scaling_factor: self.scaling_factor,
+                    apply_scaling_factor_to_gridlines: self.apply_scaling_factor_to_gridlines,
+                }))]
+            })
+            .unwrap_or_default();
 
         if let (Some(tooltip), Some(cursor_position)) = (tooltip, cursor_position) {
             children.push(overlay::Element::new(Box::new(TooltipOverlay {
@@ -303,6 +312,7 @@ struct GridlineLabelsOverlay<'a> {
     labels: &'a mut [Element<'static, (), Theme, Renderer>],
     trees: &'a mut [Tree],
     shader_bounds: Rectangle,
+    clip_bounds: Rectangle,
     scaling_factor: f32,
     apply_scaling_factor_to_gridlines: bool,
 }
@@ -346,22 +356,24 @@ impl overlay::Overlay<(), Theme, Renderer> for GridlineLabelsOverlay<'_> {
         layout: Layout<'_>,
         cursor: Cursor,
     ) {
-        for ((label, tree), layout) in self
-            .labels
-            .iter()
-            .zip(self.trees.iter())
-            .zip(layout.children())
-        {
-            label.as_widget().draw(
-                tree,
-                renderer,
-                theme,
-                style,
-                layout,
-                cursor,
-                &Rectangle::with_size(Size::INFINITE),
-            );
-        }
+        renderer.with_layer(self.clip_bounds, |renderer| {
+            for ((label, tree), layout) in self
+                .labels
+                .iter()
+                .zip(self.trees.iter())
+                .zip(layout.children())
+            {
+                label.as_widget().draw(
+                    tree,
+                    renderer,
+                    theme,
+                    style,
+                    layout,
+                    cursor,
+                    &self.clip_bounds,
+                );
+            }
+        });
     }
 
     fn index(&self) -> f32 {
