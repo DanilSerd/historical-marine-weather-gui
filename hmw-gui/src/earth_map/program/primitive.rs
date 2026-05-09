@@ -98,6 +98,7 @@ impl shader::Primitive for EarthMapPrimitive {
             queue,
             &EarthMapUniforms {
                 mvp: vp,
+                normal_transform: glam::Mat4::from_quat(self.rotation),
                 dark_mode: self.colors.dark_mode as u32,
                 ..Default::default()
             },

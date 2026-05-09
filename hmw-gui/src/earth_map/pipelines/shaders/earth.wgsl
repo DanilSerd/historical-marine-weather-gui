@@ -1,5 +1,6 @@
 struct Uniforms {
     mvp: mat4x4<f32>,
+    normal_transform: mat4x4<f32>,
     dark_mode: u32,
 }
 
@@ -31,7 +32,7 @@ fn vs_main(
     var vs_out: VSOutput;
     vs_out.position = uniforms.mvp * pos;
     vs_out.model_normal = vertex.model_normal;
-    vs_out.world_normal = normalize((uniforms.mvp * vec4f(vertex.model_normal, 0.)).xyz);
+    vs_out.world_normal = normalize((uniforms.normal_transform * vec4f(vertex.model_normal, 0.)).xyz);
     return vs_out;
 }
 
@@ -46,28 +47,20 @@ var r_sampler: sampler;
 fn fs_main(in: VSOutput) -> @location(0) vec4<f32> {
     let normal = normalize(in.model_normal);
     let sample = textureSample(r_texture, r_sampler, normal);
-    let base = sample.rgb;
+    let luminance = dot(sample.rgb, vec3f(0.2126, 0.7152, 0.0722));
+    let base = vec3f(luminance);
     let world_normal = normalize(in.world_normal);
-    let fc = fresnel(4.0, world_normal);
+    let light_dir = normalize(vec3f(-0.4, 0.5, -0.8));
+    let diffuse = max(dot(world_normal, light_dir), 0.0);
+    let lighting = 0.2 + 0.8 * diffuse;
 
     if uniforms.dark_mode != 0u {
-        let rgb = clamp(
-            base * 0.5 - fc,
-            vec3f(0.0),
-            vec3f(1.0),
-        );
+        let rgb = clamp(base * 0.5 * lighting, vec3f(0.0), vec3f(1.0));
 
         return vec4f(rgb, sample.a);
     }
 
-    let rgb = clamp(base + fc, vec3f(0.0), vec3f(1.0));
+    let rgb = clamp(base * lighting, vec3f(0.0), vec3f(1.0));
 
     return vec4f(rgb, sample.a);
-}
-
-
-fn fresnel(amount: f32, normal: vec3f) -> f32 {
-    let d = clamp(dot(normal, vec3f(0., 0., -1.)), 0.0, 1.0);
-
-    return pow(1.0 - d, amount);
 }
