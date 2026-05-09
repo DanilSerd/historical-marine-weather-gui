@@ -1,4 +1,5 @@
 use hmw_geo::{Lattice, LatticeEntry, geo::Point};
+use iced::Theme;
 
 #[derive(Debug, Clone, Copy)]
 pub struct EarthMapColors {
@@ -6,24 +7,14 @@ pub struct EarthMapColors {
     pub dark_mode: bool,
 }
 
-impl Default for EarthMapColors {
-    fn default() -> Self {
-        Self::light()
-    }
-}
-
 impl EarthMapColors {
-    pub fn light() -> Self {
-        Self {
-            lattice_highlight: glam::Vec4::new(0.00, 0.62, 0.82, 0.80),
-            dark_mode: false,
-        }
-    }
+    pub fn from_theme(theme: &Theme) -> Self {
+        let palette = theme.extended_palette();
+        let color = palette.primary.base.color;
 
-    pub fn dark() -> Self {
         Self {
-            lattice_highlight: glam::Vec4::new(0.02, 0.40, 0.54, 0.85),
-            dark_mode: true,
+            lattice_highlight: glam::Vec4::new(color.r, color.g, color.b, 0.80),
+            dark_mode: palette.is_dark,
         }
     }
 }

@@ -16,14 +16,12 @@ pub struct EarthMapProgram {
     spheroid: Arc<Spheroid>,
     lattice: Arc<Lattice>,
     cell_selection: Arc<CellSelection>,
-    colors: EarthMapColors,
 }
 
 impl EarthMapProgram {
-    pub fn new(spheroid: Arc<Spheroid>, colors: EarthMapColors, lattice: Arc<Lattice>) -> Self {
+    pub fn new(spheroid: Arc<Spheroid>, lattice: Arc<Lattice>) -> Self {
         Self {
             spheroid,
-            colors,
             lattice,
             cell_selection: Arc::new(CellSelection::default()),
         }
@@ -38,35 +36,26 @@ impl EarthMapProgram {
         self.lattice.containing(p).map(|(e, i)| (*e, *i))
     }
 
-    pub fn set_colors(&mut self, colors: EarthMapColors) {
-        self.colors = colors;
-    }
-}
-
-impl iced::widget::shader::Program<EarthMapProgramMessage> for EarthMapProgram {
-    type State = EarthMapState;
-
-    type Primitive = EarthMapPrimitive;
-
-    fn draw(
+    pub fn draw(
         &self,
-        state: &Self::State,
+        state: &EarthMapState,
         _cursor: iced::advanced::mouse::Cursor,
         _bounds: iced::Rectangle,
-    ) -> Self::Primitive {
+        colors: EarthMapColors,
+    ) -> EarthMapPrimitive {
         EarthMapPrimitive {
             spheroid: self.spheroid.clone(),
             rotation: state.rotation(),
             scale: state.scale(),
-            colors: self.colors,
+            colors,
             lattice: self.lattice.clone(),
             cell_selection: self.cell_selection.clone(),
         }
     }
 
-    fn update(
+    pub fn update(
         &self,
-        state: &mut Self::State,
+        state: &mut EarthMapState,
         event: &iced::Event,
         bounds: iced::Rectangle,
         cursor: iced::advanced::mouse::Cursor,
@@ -103,9 +92,9 @@ impl iced::widget::shader::Program<EarthMapProgramMessage> for EarthMapProgram {
         Some(shader::Action::publish(m).and_capture())
     }
 
-    fn mouse_interaction(
+    pub fn mouse_interaction(
         &self,
-        state: &Self::State,
+        state: &EarthMapState,
         _bounds: Rectangle,
         _cursor: iced::advanced::mouse::Cursor,
     ) -> iced::advanced::mouse::Interaction {

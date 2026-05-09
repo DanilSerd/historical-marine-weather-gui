@@ -18,7 +18,7 @@ use crate::{
     assets::Assets,
     controll_bar::ControlBarMessage,
     data_file_manager::{DataFileManager, Message as DataFileManagerMessage},
-    earth_map::{EarthMap, EarthMapColors},
+    earth_map::EarthMap,
     loader::Loader,
 };
 
@@ -217,11 +217,7 @@ fn startup() -> Task<AppMessage> {
             Err(e) => return Task::done(AppMessage::Error(e.to_string())),
         };
         let lattice = Arc::new(lattice);
-        let colors = match persistent_state.is_dark_mode() {
-            true => EarthMapColors::dark(),
-            false => EarthMapColors::light(),
-        };
-        let earth_map = match EarthMap::new(colors, lattice.clone(), Assets::earth_map_texture()) {
+        let earth_map = match EarthMap::new(lattice.clone(), Assets::earth_map_texture()) {
             Ok(earth_map) => earth_map,
             Err(e) => return Task::done(AppMessage::Error(e.to_string())),
         };

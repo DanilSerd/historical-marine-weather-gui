@@ -9,7 +9,7 @@ use iced::{
 use super::{
     Spheroid,
     pipelines::spheroid::SpheroidTextureData,
-    program::{CellSelection, EarthMapColors, EarthMapProgram, EarthMapProgramMessage},
+    program::{CellSelection, EarthMapProgram, EarthMapProgramMessage, EarthMapWidget},
 };
 use crate::{assets::Assets, widgets::follow_tooltip};
 
@@ -41,14 +41,13 @@ pub enum EarthMapMessage {
 impl EarthMap {
     /// Creates a new interactive earth map.
     pub fn new<'a>(
-        colors: EarthMapColors,
         lattice: Arc<Lattice>,
         texture_bytes: Cow<'a, [u8]>,
     ) -> Result<Self, &'static str> {
         let texture = SpheroidTextureData::load(&texture_bytes)?;
         let spheroid = Spheroid::new(DEFAULT_SUBDIVISIONS, texture);
         Ok(Self {
-            program: EarthMapProgram::new(Arc::new(spheroid), colors, lattice.clone()),
+            program: EarthMapProgram::new(Arc::new(spheroid), lattice.clone()),
             lattice,
             hover_geo: None,
             show_help: false,
@@ -66,10 +65,6 @@ impl EarthMap {
             }
             _ => {}
         }
-    }
-
-    pub fn set_colors(&mut self, colors: EarthMapColors) {
-        self.program.set_colors(colors);
     }
 
     /// Sets highlighted and selected lattice nodes.
@@ -94,7 +89,7 @@ impl EarthMap {
 
     /// Builds the earth map view.
     pub fn view(&self, show_clear_selection: bool) -> Element<'_, EarthMapMessage> {
-        let map: Element<'_, EarthMapProgramMessage> = iced::widget::shader(&self.program)
+        let map: Element<'_, EarthMapProgramMessage> = EarthMapWidget::new(&self.program)
             .width(Length::Fill)
             .height(Length::Fill)
             .into();

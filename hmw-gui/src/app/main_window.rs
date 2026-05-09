@@ -8,7 +8,7 @@ use rfd::FileHandle;
 use crate::app::persistant_state::AppPersistentConfig;
 use crate::collection::{SavingStatus, WeatherSummaryCollection};
 use crate::controll_bar::{ControlBar, ControlBarMessage};
-use crate::earth_map::{EarthMap, EarthMapColors};
+use crate::earth_map::EarthMap;
 use crate::loader::Loader;
 use crate::weather_summary_collection::{
     WeatherSummaryCollectionMessage, WeatherSummaryCollectionScreensState,
@@ -189,19 +189,7 @@ impl MainWindowState {
                         .map(MainWindowMessage::CollectionMessage)
                     })
                     .unwrap_or(Task::none()),
-                ControlBarMessage::ToggleDarkMode(dark_mode) => {
-                    let earth = self
-                        .earth_map
-                        .as_mut()
-                        .or(self.collection_state.as_mut().map(|c| &mut c.earth_map));
-                    if let Some(earth) = earth {
-                        match dark_mode {
-                            true => earth.set_colors(EarthMapColors::dark()),
-                            false => earth.set_colors(EarthMapColors::light()),
-                        }
-                    }
-                    Task::none()
-                }
+                ControlBarMessage::ToggleDarkMode(_) => Task::none(),
                 _ => Task::none(),
             },
         }
